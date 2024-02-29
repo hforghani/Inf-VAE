@@ -81,21 +81,21 @@ class InfVAECascades(Model):
 
         # Define train/val/test data batches by reading from input sequences using slice_input_producer.
         [input_train, length_train, target_train, masks_train, input_train_times, target_train_times] = \
-            tf.train.slice_input_producer([self.inputs_train, self.inputs_length_train,
-                                           self.targets_train, self.masks_train,
-                                           self.inputs_train_times, self.targets_train_times],
-                                          shuffle=True, capacity=FLAGS.cascade_batch_size)
+            tf.compat.v1.train.slice_input_producer([self.inputs_train, self.inputs_length_train,
+                                                     self.targets_train, self.masks_train,
+                                                     self.inputs_train_times, self.targets_train_times],
+                                                    shuffle=True, capacity=FLAGS.cascade_batch_size)
 
         [input_val, length_val, target_val, masks_val, input_val_times, target_val_times] = \
-            tf.train.slice_input_producer([self.inputs_val, self.inputs_length_val,
-                                           self.targets_val, self.masks_val,
-                                           self.inputs_val_times, self.targets_val_times],
-                                          shuffle=False, capacity=FLAGS.cascade_batch_size)
+            tf.compat.v1.train.slice_input_producer([self.inputs_val, self.inputs_length_val,
+                                                     self.targets_val, self.masks_val,
+                                                     self.inputs_val_times, self.targets_val_times],
+                                                    shuffle=False, capacity=FLAGS.cascade_batch_size)
 
         [input_test, length_test, target_test, masks_test, input_test_times, target_test_times] = \
-            tf.train.slice_input_producer([self.inputs_test, self.inputs_length_test, self.targets_test,
-                                           self.masks_test, self.inputs_test_times, self.targets_test_times],
-                                          shuffle=False, capacity=FLAGS.cascade_batch_size)
+            tf.compat.v1.train.slice_input_producer([self.inputs_test, self.inputs_length_test, self.targets_test,
+                                                     self.masks_test, self.inputs_test_times, self.targets_test_times],
+                                                    shuffle=False, capacity=FLAGS.cascade_batch_size)
 
         min_after_dequeue = FLAGS.cascade_batch_size
         q_size = min_after_dequeue + (num_threads + 1) * FLAGS.cascade_batch_size
@@ -143,13 +143,13 @@ class InfVAECascades(Model):
                            ] * num_threads
 
         # Define train/val/test queue runners.
-        qr_train = tf.train.QueueRunner(train_queue, train_enqueue_ops)
-        qr_val = tf.train.QueueRunner(val_queue, val_enqueue_ops)
-        qr_test = tf.train.QueueRunner(test_queue, test_enqueue_ops)
+        qr_train = tf.compat.v1.train.QueueRunner(train_queue, train_enqueue_ops)
+        qr_val = tf.compat.v1.train.QueueRunner(val_queue, val_enqueue_ops)
+        qr_test = tf.compat.v1.train.QueueRunner(test_queue, test_enqueue_ops)
 
-        tf.train.add_queue_runner(qr_train)
-        tf.train.add_queue_runner(qr_val)
-        tf.train.add_queue_runner(qr_test)
+        tf.compat.v1.train.add_queue_runner(qr_train)
+        tf.compat.v1.train.add_queue_runner(qr_val)
+        tf.compat.v1.train.add_queue_runner(qr_test)
 
         # Feed train/val/test based on `is_val' and `is_test' flag.
         data_batch = tf.case(
@@ -254,13 +254,14 @@ class InfVAECascades(Model):
             _, self.top_k = tf.nn.top_k(self.outputs, k=200)  # (batch_size, 200)
 
             # Remove seed users from the predicted rank list.
-            self.top_k_filter = tf.py_func(remove_seeds, [self.top_k, self.inputs], tf.int32)
+            self.top_k_filter = tf.compat.v1.py_func(remove_seeds, [self.top_k, self.inputs], tf.int32)
 
             masks = tf.cast(tf.reshape(
-                tf.py_func(get_masks, [self.top_k_filter, self.inputs],
-                           tf.int32), [-1]), tf.bool)
+                tf.compat.v1.py_func(get_masks, [self.top_k_filter, self.inputs],
+                                     tf.int32), [-1]), tf.bool)
 
-            relevance_scores_all = tf.py_func(get_relevance_scores, [self.top_k_filter, self.targets], tf.bool)
+            relevance_scores_all = tf.compat.v1.py_func(get_relevance_scores, [self.top_k_filter, self.targets],
+                                                        tf.bool)
 
             # Number of relevant candidates.
             m = tf.reduce_sum(tf.reduce_max(tf.one_hot(self.targets, self.num_nodes), axis=1), -1)
@@ -269,12 +270,12 @@ class InfVAECascades(Model):
                                                                     tf.float32), masks), tf.int32)
             # Metric score computation.
             self.recall_scores = [
-                tf.py_func(mean_recall_at_k, [self.relevance_scores, k, m],
-                           tf.float32) for k in self.k_list
+                tf.compat.v1.py_func(mean_recall_at_k, [self.relevance_scores, k, m],
+                                     tf.float32) for k in self.k_list
             ]
 
             self.map_scores = [
-                tf.py_func(MAP, [self.relevance_scores, k, m], tf.float32)
+                tf.compat.v1.py_func(MAP, [self.relevance_scores, k, m], tf.float32)
                 for k in self.k_list
             ]
 
@@ -306,9 +307,9 @@ class InfVAECascades(Model):
                                 ))) + self.lambda_a * tf.nn.l2_loss(self.co_attn_wts)
         else:
             self.cascade_loss = tf.reduce_mean(
-                tf.nn.weighted_cross_entropy_with_logits(targets=labels_k_hot,
-                                                         logits=self.outputs,
-                                                         pos_weight=FLAGS.pos_weight)
+                tf.compat.v1.nn.weighted_cross_entropy_with_logits(targets=labels_k_hot,
+                                                                   logits=self.outputs,
+                                                                   pos_weight=FLAGS.pos_weight)
             ) + self.lambda_a * tf.nn.l2_loss(self.co_attn_wts)
 
         # Sender and receiver losses.
@@ -376,6 +377,7 @@ class InfVAESocial(Model):
 
     def _init_placeholders(self):
         """ Initialize minimal set of placeholders with sender, receiver embeddings and flags. """
+        tf.compat.v1.disable_eager_execution()  # <--- Disable eager execution
         self.pre_train = tf.compat.v1.placeholder(tf.bool, name='pre_train')
         self.dropout = tf.compat.v1.placeholder_with_default(0., shape=(), name='dropout')
         self.sender = tf.compat.v1.placeholder(dtype=tf.float32, shape=(None, None), name='sender')

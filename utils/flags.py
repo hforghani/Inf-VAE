@@ -30,7 +30,6 @@ flags.DEFINE_integer('max_seq_length', 100, 'Maximum sequence length')
 flags.DEFINE_float('test_min_percent', 0.1, 'Minimum seed set percentage for testing.')
 flags.DEFINE_float('test_max_percent', 0.5, 'Maximum seed set percentage for testing.')
 
-
 # Co-Attention model parameters.
 flags.DEFINE_float('lambda_a', 0.1, 'Lambda_a for attention weights')
 flags.DEFINE_float('cascade_lr', 0.01, 'Initial learning rate for cascade model.')
@@ -43,3 +42,22 @@ flags.DEFINE_string('vae_loss_function', 'cross_entropy', 'Loss function for VGA
 flags.DEFINE_integer('vae_batch_size', 64, 'Batch size VAE')
 flags.DEFINE_float('vae_lr', 0.01, 'Initial learning rate for vae model.')
 flags.DEFINE_float('vae_weight_decay', 1e-4, 'Weight for L2 loss on embedding matrix.')
+
+# Ray parameters
+flags.DEFINE_string('node-ip-address', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('node-manager-port', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('object-store-name', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('raylet-name', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('redis-address', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('temp-dir', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('metrics-agent-port', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('runtime-env-agent-port', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('logging-rotate-bytes', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('logging-rotate-backup-count', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('gcs-address', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('session-name', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('webui', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('cluster-id', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('startup-token', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('worker-launch-time-ms', None, 'Not used; only to be compatible with ray')
+flags.DEFINE_string('runtime-env-hash', None, 'Not used; only to be compatible with ray')
