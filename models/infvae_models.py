@@ -17,6 +17,7 @@ class InfVAECascades(Model):
                  test_examples, test_examples_times, mode='feed', **kwargs):
         super(InfVAECascades, self).__init__(**kwargs)
         self.k_list = [10, 50, 100]  # size of rank list for evaluation.
+        self.f1_k_list = list(range(1, 10)) + list(range(10, 41, 5))
         # Prepare train, test, and val examples -- use max_seq_length --
         train_examples, train_lengths, train_targets, train_masks, train_examples_times, train_targets_times = \
             prepare_sequences(train_examples, train_examples_times, max_len=FLAGS.max_seq_length, mode='train')
@@ -277,6 +278,11 @@ class InfVAECascades(Model):
             self.map_scores = [
                 tf.compat.v1.py_func(MAP, [self.relevance_scores, k, m], tf.float32)
                 for k in self.k_list
+            ]
+
+            self.f1_scores = [
+                tf.compat.v1.py_func(mean_f1_at_k, [self.relevance_scores, k, m], tf.float32)
+                for k in self.f1_k_list
             ]
 
     def init_optimizer(self):

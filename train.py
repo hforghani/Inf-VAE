@@ -11,10 +11,10 @@ from utils.flags import *
 
 def predict(session, model, feed):
     """ Helper function to compute model predictions. """
-    recall_scores, map_scores, n_samples, top_k, target = \
-        session.run([model.recall_scores, model.map_scores, model.relevance_scores,
+    recall_scores, map_scores, f1_scores, n_samples, top_k, target = \
+        session.run([model.recall_scores, model.map_scores, model.f1_scores, model.relevance_scores,
                      model.top_k_filter, model.targets], feed_dict=feed)
-    return recall_scores, map_scores, n_samples.shape[0], top_k, target
+    return recall_scores, map_scores, f1_scores, n_samples.shape[0], top_k, target
 
 
 def main(**kwargs):
@@ -178,11 +178,13 @@ def main(**kwargs):
 
                 total_samples = 0
                 num_eval_k = len(CoAtt.k_list)
+                num_eval_k_f1 = len(CoAtt.f1_k_list)
                 avg_map_scores, avg_recall_scores = [0.] * num_eval_k, [0.] * num_eval_k
+                avg_f1_scores = [0.] * num_eval_k_f1
 
                 all_outputs, all_targets = [], []
                 for b in range(0, CoAtt.num_test_batches):
-                    recalls, maps, num_samples, decoder_outputs, decoder_targets = predict(
+                    recalls, maps, f1, num_samples, decoder_outputs, decoder_targets = predict(
                         sess, CoAtt, input_feed)
                     all_outputs.append(decoder_outputs)
                     all_targets.append(decoder_targets)
@@ -191,17 +193,23 @@ def main(**kwargs):
                                               [num_samples] * num_eval_k), avg_map_scores))
                     avg_recall_scores = list(map(operator.add, map(operator.mul, recalls,
                                                                    [num_samples] * num_eval_k), avg_recall_scores))
+                    avg_f1_scores = list(map(operator.add, map(operator.mul, f1,
+                                                               [num_samples] * num_eval_k_f1), avg_f1_scores))
                     total_samples += num_samples
                 all_outputs = np.vstack(all_outputs)
                 all_targets = np.vstack(all_targets)
                 avg_map_scores = list(map(operator.truediv, avg_map_scores, [total_samples] * num_eval_k))
                 avg_recall_scores = list(map(operator.truediv, avg_recall_scores, [total_samples] * num_eval_k))
+                avg_f1_scores = list(map(operator.truediv, avg_f1_scores, [total_samples] * num_eval_k_f1))
 
                 metrics = dict()
                 for k in range(0, num_eval_k):
                     K = CoAtt.k_list[k]
                     metrics["MAP@%d" % K] = avg_map_scores[k]
                     metrics["Recall@%d" % K] = avg_recall_scores[k]
+                for k in range(0, num_eval_k_f1):
+                    K = CoAtt.f1_k_list[k]
+                    metrics["F1@%d" % K] = avg_f1_scores[k]
 
                 logger.update_record(avg_map_scores[0], (all_outputs, all_targets, metrics))
 

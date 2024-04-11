@@ -1,3 +1,6 @@
+import logging
+from typing import Tuple
+
 import numpy as np
 from utils import preprocess
 
@@ -20,6 +23,22 @@ def recall_at_k(relevance_score, k, m):
     return np.sum(relevance_score) / float(m)
 
 
+def f1_at_k(relevance_score, k, m):
+    assert k >= 1
+    relevance_score = np.asarray(relevance_score)[:k] != 0
+    if relevance_score.size != k:
+        raise ValueError('Relevance score length < K')
+    precision = np.mean(relevance_score)
+    recall = np.sum(relevance_score) / float(m)
+    if precision == 0 or recall == 0:
+        f1 = 0
+    else:
+        f1 = 2 * precision * recall / (precision + recall)
+    # logging.info(f"relevance_score = {''.join('1' if r else '0' for r in relevance_score)}\n"
+    #              f"k = {k}, precision = {precision}, recall = {recall}, f1 = {f1}")
+    return f1
+
+
 def mean_precision_at_k(relevance_scores, k):
     """ Mean Precision at K given binary relevance scores. """
     mean_p_at_k = np.mean(
@@ -31,6 +50,18 @@ def mean_recall_at_k(relevance_scores, k, m_list):
     """ Mean Recall at K:  m_list is a list containing # relevant target entities for each data point. """
     mean_r_at_k = np.mean([recall_at_k(r, k, M) for r, M in zip(relevance_scores, m_list)]).astype(np.float32)
     return mean_r_at_k
+
+
+def mean_f1_at_k(relevance_scores, k, m_list):
+    mean_f1 = np.mean([f1_at_k(r, k, M) for r, M in zip(relevance_scores, m_list)]).astype(np.float32)
+    return mean_f1
+
+
+def max_f1(relevance_scores, k_list, m_list):
+    f1_values = [mean_f1_at_k(relevance_scores, k, m_list) for k in k_list]
+    # logging.info(f"f1_values = {f1_values}")
+    max_val = np.max(f1_values)
+    return max_val
 
 
 def average_precision(relevance_score, K, m):
