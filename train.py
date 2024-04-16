@@ -205,11 +205,11 @@ def main(**kwargs):
                 metrics = dict()
                 for k in range(0, num_eval_k):
                     K = CoAtt.k_list[k]
-                    metrics[f"MAP@{K:0<3}"] = avg_map_scores[k]
-                    metrics[f"Recall@{K:0<3}"] = avg_recall_scores[k]
+                    metrics[f"MAP@{K:0>3}"] = avg_map_scores[k]
+                    metrics[f"Recall@{K:0>3}"] = avg_recall_scores[k]
                 for k in range(0, num_eval_k_f1):
                     K = CoAtt.f1_k_list[k]
-                    metrics[f"F1@{K:0<3}"] = avg_f1_scores[k]
+                    metrics[f"F1@{K:0>3}"] = avg_f1_scores[k]
 
                 logger.update_record(avg_map_scores[0], (all_outputs, all_targets, metrics))
 
