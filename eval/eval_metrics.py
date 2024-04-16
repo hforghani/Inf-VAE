@@ -1,7 +1,12 @@
+import datetime
+import json
 import logging
-from typing import Tuple
+import os
 
 import numpy as np
+from sklearn import metrics
+from matplotlib import pyplot
+
 from utils import preprocess
 
 
@@ -21,6 +26,15 @@ def recall_at_k(relevance_score, k, m):
     if relevance_score.size != k:
         raise ValueError('Relevance score length < K')
     return np.sum(relevance_score) / float(m)
+
+
+def fpr_at_k(relevance_score, k, ir_count):
+    """ False positive rate at K given binary relevance scores. """
+    assert k >= 1
+    relevance_score = np.asarray(relevance_score)[:k] != 0
+    if relevance_score.size != k:
+        raise ValueError('Relevance score length < K')
+    return (relevance_score.size - np.sum(relevance_score)) / float(ir_count)
 
 
 def f1_at_k(relevance_score, k, m):
@@ -52,7 +66,18 @@ def mean_recall_at_k(relevance_scores, k, m_list):
     return mean_r_at_k
 
 
+def mean_fpr_at_k(relevance_scores, k, ir_list, in_counts, inputs, targets):
+    """ Mean Recall at K:  ir_list is a list containing # irrelevant candidate entities for each data point. """
+    logging.info(f"in_counts = {in_counts}")
+    logging.info(f"inputs = {inputs}")
+    logging.info(f"targets = {targets}")
+    mean_fpr_at_k = np.mean([fpr_at_k(r, k, ir_count) for r, ir_count in zip(relevance_scores, ir_list)]).astype(
+        np.float32)
+    return mean_fpr_at_k
+
+
 def mean_f1_at_k(relevance_scores, k, m_list):
+    # logging.info(f"m = {m_list}")
     mean_f1 = np.mean([f1_at_k(r, k, M) for r, M in zip(relevance_scores, m_list)]).astype(np.float32)
     return mean_f1
 
@@ -105,6 +130,8 @@ def remove_seeds(top_k, inputs):
     for i in range(0, top_k.shape[0]):
         seeds = set(inputs[i])
         lst = list(top_k[i])  # top-k predicted users.
+        # logging.info(f"inputs[i] = {inputs[i]}\n"
+        #              f"top_k[i] = {top_k[i]}")
         for s in seeds:
             if s in lst:
                 lst.remove(s)
@@ -117,7 +144,47 @@ def remove_seeds(top_k, inputs):
 def get_relevance_scores(top_k_filter, targets):
     """ Create binary relevance scores by checking if the top-k predicted users are in target set. """
     output = []
+    # logging.info(f"targets = {targets}")
     for i in range(0, top_k_filter.shape[0]):
         z = np.isin(top_k_filter[i], targets[i])
         output.append(z)
     return np.array(output)
+
+
+def auc_roc(fprs: list, tprs: list):
+    """ area under curve of ROC """
+
+    # Every ROC curve must have 2 points <0,0> (no output) and <1,1> (returning all reference set as output).
+    if 0 not in fprs:
+        fprs = [0] + fprs
+        tprs = [0] + tprs
+
+    if 1 not in fprs:
+        fprs.append(1)
+        tprs.append(1)
+
+    fprs, tprs = np.array(fprs), np.array(tprs)
+    indexes = fprs.argsort()
+    fprs = fprs[indexes]
+    tprs = tprs[indexes]
+    save_roc(fprs, tprs)
+    return metrics.auc(fprs, tprs)
+
+
+def save_roc(fpr: np.array, tpr: np.array):
+    """
+    Save ROC plot as png and FPR-TPR values as json.
+    """
+    pyplot.figure()
+    pyplot.plot(fpr, tpr)
+    pyplot.axis((0, 1, 0, 1))
+    pyplot.xlabel("fpr")
+    pyplot.ylabel("tpr")
+    results_path = 'results'
+    if not os.path.exists(results_path):
+        os.mkdir(results_path)
+    base_name = f'roc-{datetime.datetime.now()}'
+    pyplot.savefig(os.path.join(results_path, f'{base_name}.png'))
+    # pyplot.show()
+    with open(os.path.join(results_path, f'{base_name}.json'), "w") as f:
+        json.dump({"fpr": fpr.tolist(), "tpr": tpr.tolist()}, f)

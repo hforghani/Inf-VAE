@@ -4,6 +4,7 @@ import operator
 import time
 from pprint import pprint
 
+from eval.eval_metrics import auc_roc
 from models.infvae_models import InfVAESocial, InfVAECascades
 from utils.preprocess import *
 from utils.flags import *
@@ -11,10 +12,10 @@ from utils.flags import *
 
 def predict(session, model, feed):
     """ Helper function to compute model predictions. """
-    recall_scores, map_scores, f1_scores, n_samples, top_k, target = \
-        session.run([model.recall_scores, model.map_scores, model.f1_scores, model.relevance_scores,
-                     model.top_k_filter, model.targets], feed_dict=feed)
-    return recall_scores, map_scores, f1_scores, n_samples.shape[0], top_k, target
+    recall_scores, map_scores, f1_scores, fpr_scores, tpr_scores, n_samples, top_k, target = \
+        session.run([model.recall_scores, model.map_scores, model.f1_scores, model.fpr_scores, model.tpr_scores,
+                     model.relevance_scores, model.top_k_filter, model.targets], feed_dict=feed)
+    return recall_scores, map_scores, f1_scores, fpr_scores, tpr_scores, n_samples.shape[0], top_k, target
 
 
 def main(**kwargs):
@@ -90,6 +91,7 @@ def main(**kwargs):
         CoAtt = InfVAECascades(num_nodes + 1, train_examples, train_examples_times,
                                val_examples, val_examples_times,
                                test_examples, test_examples_times,
+                               # A,
                                logging=True, mode='feed')
 
         # Initialize session
@@ -179,12 +181,14 @@ def main(**kwargs):
                 total_samples = 0
                 num_eval_k = len(CoAtt.k_list)
                 num_eval_k_f1 = len(CoAtt.f1_k_list)
+                num_eval_k_roc = num_nodes  # ROC curve: FPR over TPR
                 avg_map_scores, avg_recall_scores = [0.] * num_eval_k, [0.] * num_eval_k
                 avg_f1_scores = [0.] * num_eval_k_f1
+                avg_fpr_scores, avg_tpr_scores = [0.] * num_eval_k_roc, [0.] * num_eval_k_roc
 
                 all_outputs, all_targets = [], []
                 for b in range(0, CoAtt.num_test_batches):
-                    recalls, maps, f1, num_samples, decoder_outputs, decoder_targets = predict(
+                    recalls, maps, f1s, fprs, tprs, num_samples, decoder_outputs, decoder_targets = predict(
                         sess, CoAtt, input_feed)
                     all_outputs.append(decoder_outputs)
                     all_targets.append(decoder_targets)
@@ -193,14 +197,20 @@ def main(**kwargs):
                                               [num_samples] * num_eval_k), avg_map_scores))
                     avg_recall_scores = list(map(operator.add, map(operator.mul, recalls,
                                                                    [num_samples] * num_eval_k), avg_recall_scores))
-                    avg_f1_scores = list(map(operator.add, map(operator.mul, f1,
+                    avg_f1_scores = list(map(operator.add, map(operator.mul, f1s,
                                                                [num_samples] * num_eval_k_f1), avg_f1_scores))
+                    avg_fpr_scores = list(map(operator.add, map(operator.mul, fprs,
+                                                                [num_samples] * num_eval_k_roc), avg_fpr_scores))
+                    avg_tpr_scores = list(map(operator.add, map(operator.mul, tprs,
+                                                                [num_samples] * num_eval_k_roc), avg_tpr_scores))
                     total_samples += num_samples
                 all_outputs = np.vstack(all_outputs)
                 all_targets = np.vstack(all_targets)
                 avg_map_scores = list(map(operator.truediv, avg_map_scores, [total_samples] * num_eval_k))
                 avg_recall_scores = list(map(operator.truediv, avg_recall_scores, [total_samples] * num_eval_k))
                 avg_f1_scores = list(map(operator.truediv, avg_f1_scores, [total_samples] * num_eval_k_f1))
+                avg_fpr_scores = list(map(operator.truediv, avg_fpr_scores, [total_samples] * num_eval_k_roc))
+                avg_tpr_scores = list(map(operator.truediv, avg_tpr_scores, [total_samples] * num_eval_k_roc))
 
                 metrics = dict()
                 for k in range(0, num_eval_k):
@@ -210,6 +220,7 @@ def main(**kwargs):
                 for k in range(0, num_eval_k_f1):
                     K = CoAtt.f1_k_list[k]
                     metrics[f"F1@{K:0>3}"] = avg_f1_scores[k]
+                metrics["auc_roc"] = auc_roc(avg_fpr_scores, avg_tpr_scores)
 
                 logger.update_record(avg_map_scores[0], (all_outputs, all_targets, metrics))
 

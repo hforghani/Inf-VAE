@@ -1,6 +1,9 @@
 from __future__ import division, print_function
 
 import math
+
+import networkx
+
 from eval.eval_metrics import *
 from models.graph_ae import GCN, MLP
 from models.models import Model
@@ -14,10 +17,14 @@ class InfVAECascades(Model):
     """ Diffusion Cascades component of Inf-VAE. """
 
     def __init__(self, num_nodes, train_examples, train_examples_times, val_examples, val_examples_times,
-                 test_examples, test_examples_times, mode='feed', **kwargs):
+                 test_examples, test_examples_times,
+                 # adj,
+                 mode='feed', **kwargs):
         super(InfVAECascades, self).__init__(**kwargs)
+        # self.graph = networkx.from_numpy_array(adj)
         self.k_list = [10, 50, 100]  # size of rank list for evaluation.
         self.f1_k_list = list(range(1, 10)) + list(range(10, 81, 5))
+        self.roc_k_list = range(1, num_nodes + 1)
         # Prepare train, test, and val examples -- use max_seq_length --
         train_examples, train_lengths, train_targets, train_masks, train_examples_times, train_targets_times = \
             prepare_sequences(train_examples, train_examples_times, max_len=FLAGS.max_seq_length, mode='train')
@@ -48,6 +55,8 @@ class InfVAECascades(Model):
         self.mode = mode
 
         self.inputs_train, self.targets_train = train_examples, train_targets
+        # logging.info(f"train_examples = {train_examples}")
+        # logging.info(f"train_targets = {train_targets}")
         self.inputs_length_train, self.masks_train = train_lengths, train_masks
         self.inputs_train_times, self.targets_train_times = train_examples_times, train_targets_times
 
@@ -256,19 +265,27 @@ class InfVAECascades(Model):
 
             # Remove seed users from the predicted rank list.
             self.top_k_filter = tf.compat.v1.py_func(remove_seeds, [self.top_k, self.inputs], tf.int32)
+            output_filter = tf.compat.v1.py_func(remove_seeds, [self.outputs, self.inputs], tf.int32)
 
             masks = tf.cast(tf.reshape(
                 tf.compat.v1.py_func(get_masks, [self.top_k_filter, self.inputs],
                                      tf.int32), [-1]), tf.bool)
+            output_masks = tf.cast(tf.reshape(
+                tf.compat.v1.py_func(get_masks, [output_filter, self.inputs], tf.int32), [-1]), tf.bool)
 
             relevance_scores_all = tf.compat.v1.py_func(get_relevance_scores, [self.top_k_filter, self.targets],
                                                         tf.bool)
+            output_relevance_scores_all = tf.compat.v1.py_func(get_relevance_scores, [output_filter, self.targets],
+                                                               tf.bool)
 
             # Number of relevant candidates.
             m = tf.reduce_sum(tf.reduce_max(tf.one_hot(self.targets, self.num_nodes), axis=1), -1)
+            in_counts = tf.reduce_sum(tf.reduce_max(tf.one_hot(self.inputs, self.num_nodes), axis=1), -1)
 
             self.relevance_scores = tf.cast(tf.boolean_mask(tf.cast(relevance_scores_all,
                                                                     tf.float32), masks), tf.int32)
+            output_relevance_scores = tf.cast(tf.boolean_mask(tf.cast(output_relevance_scores_all,
+                                                                      tf.float32), output_masks), tf.int32)
             # Metric score computation.
             self.recall_scores = [
                 tf.compat.v1.py_func(mean_recall_at_k, [self.relevance_scores, k, m],
@@ -283,6 +300,19 @@ class InfVAECascades(Model):
             self.f1_scores = [
                 tf.compat.v1.py_func(mean_f1_at_k, [self.relevance_scores, k, m], tf.float32)
                 for k in self.f1_k_list
+            ]
+
+            ir_counts = self.num_nodes - in_counts - m  # Number of irrelevant candidates
+            self.fpr_scores = [
+                tf.compat.v1.py_func(mean_fpr_at_k,
+                                     [output_relevance_scores, k, ir_counts, in_counts, self.inputs, self.targets],
+                                     tf.float32)
+                for k in self.roc_k_list
+            ]
+
+            self.tpr_scores = [
+                tf.compat.v1.py_func(mean_recall_at_k, [output_relevance_scores, k, m], tf.float32)
+                for k in self.roc_k_list
             ]
 
     def init_optimizer(self):
