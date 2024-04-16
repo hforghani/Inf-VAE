@@ -68,9 +68,9 @@ def mean_recall_at_k(relevance_scores, k, m_list):
 
 def mean_fpr_at_k(relevance_scores, k, ir_list, in_counts, inputs, targets):
     """ Mean Recall at K:  ir_list is a list containing # irrelevant candidate entities for each data point. """
-    logging.info(f"in_counts = {in_counts}")
-    logging.info(f"inputs = {inputs}")
-    logging.info(f"targets = {targets}")
+    # logging.info(f"in_counts[0] = {in_counts[0]}\n"
+    #              f"inputs[0] = {inputs[0]}\n"
+    #              f"targets[0] = {targets[0]}")
     mean_fpr_at_k = np.mean([fpr_at_k(r, k, ir_count) for r, ir_count in zip(relevance_scores, ir_list)]).astype(
         np.float32)
     return mean_fpr_at_k

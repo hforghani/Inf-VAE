@@ -280,7 +280,7 @@ class InfVAECascades(Model):
 
             # Number of relevant candidates.
             m = tf.reduce_sum(tf.reduce_max(tf.one_hot(self.targets, self.num_nodes), axis=1), -1)
-            in_counts = tf.reduce_sum(tf.reduce_max(tf.one_hot(self.inputs, self.num_nodes), axis=1), -1)
+            in_counts = tf.reduce_sum(tf.reduce_max(tf.one_hot(self.inputs, self.num_nodes), axis=1), -1) - 1
 
             self.relevance_scores = tf.cast(tf.boolean_mask(tf.cast(relevance_scores_all,
                                                                     tf.float32), masks), tf.int32)
