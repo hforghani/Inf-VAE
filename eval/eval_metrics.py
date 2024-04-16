@@ -66,7 +66,7 @@ def mean_recall_at_k(relevance_scores, k, m_list):
     return mean_r_at_k
 
 
-def mean_fpr_at_k(relevance_scores, k, ir_list, in_counts, inputs, targets):
+def mean_fpr_at_k(relevance_scores, k, ir_list):
     """ Mean Recall at K:  ir_list is a list containing # irrelevant candidate entities for each data point. """
     # logging.info(f"in_counts[0] = {in_counts[0]}\n"
     #              f"inputs[0] = {inputs[0]}\n"

@@ -304,9 +304,7 @@ class InfVAECascades(Model):
 
             ir_counts = self.num_nodes - in_counts - m  # Number of irrelevant candidates
             self.fpr_scores = [
-                tf.compat.v1.py_func(mean_fpr_at_k,
-                                     [output_relevance_scores, k, ir_counts, in_counts, self.inputs, self.targets],
-                                     tf.float32)
+                tf.compat.v1.py_func(mean_fpr_at_k, [output_relevance_scores, k, ir_counts], tf.float32)
                 for k in self.roc_k_list
             ]
 
