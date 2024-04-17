@@ -208,7 +208,7 @@ def save_roc(fpr: np.array, tpr: np.array):
     results_path = 'results'
     if not os.path.exists(results_path):
         os.mkdir(results_path)
-    base_name = f'roc-{datetime.datetime.now()}'
+    base_name = f'roc-{datetime.datetime.now()}'.replace(" ", "-")
     pyplot.savefig(os.path.join(results_path, f'{base_name}.png'))
     # pyplot.show()
     with open(os.path.join(results_path, f'{base_name}.json'), "w") as f:
