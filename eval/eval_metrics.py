@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+from typing import Tuple
 
 import numpy as np
 from sklearn import metrics
@@ -178,28 +179,31 @@ def get_relevance_scores(top_k_filter, targets):
 
 def auc_roc(fprs: list, tprs: list):
     """ area under curve of ROC """
+    fprs, tprs = prepare_roc(fprs, tprs)
+    return metrics.auc(fprs, tprs)
 
+
+def prepare_roc(fprs, tprs) -> Tuple[np.array, np.array]:
+    """ Preprocess fpr and tpr values and sort them to calculate auc_roc or to plot ROC """
     # Every ROC curve must have 2 points <0,0> (no output) and <1,1> (returning all reference set as output).
     if 0 not in fprs:
         fprs = [0] + fprs
         tprs = [0] + tprs
-
     if 1 not in fprs:
         fprs.append(1)
         tprs.append(1)
-
     fprs, tprs = np.array(fprs), np.array(tprs)
     indexes = fprs.argsort()
     fprs = fprs[indexes]
     tprs = tprs[indexes]
-    save_roc(fprs, tprs)
-    return metrics.auc(fprs, tprs)
+    return fprs, tprs
 
 
-def save_roc(fpr: np.array, tpr: np.array):
+def save_roc(fpr_list: list, tpr_list: list, dataset: str):
     """
     Save ROC plot as png and FPR-TPR values as json.
     """
+    fpr, tpr = prepare_roc(fpr_list, tpr_list)
     pyplot.figure()
     pyplot.plot(fpr, tpr)
     pyplot.axis((0, 1, 0, 1))
@@ -208,7 +212,7 @@ def save_roc(fpr: np.array, tpr: np.array):
     results_path = 'results'
     if not os.path.exists(results_path):
         os.mkdir(results_path)
-    base_name = f'roc-{datetime.datetime.now()}'.replace(" ", "-")
+    base_name = f'{dataset}-roc-{datetime.datetime.now()}'.replace(" ", "-")
     pyplot.savefig(os.path.join(results_path, f'{base_name}.png'))
     # pyplot.show()
     with open(os.path.join(results_path, f'{base_name}.json'), "w") as f:

@@ -4,7 +4,7 @@ import operator
 import time
 from pprint import pprint
 
-from eval.eval_metrics import auc_roc
+from eval.eval_metrics import auc_roc, save_roc
 from models.infvae_models import InfVAESocial, InfVAECascades
 from utils.preprocess import *
 from utils.flags import *
@@ -251,6 +251,7 @@ def main(**kwargs):
         outputs, targets, metrics = logger.best_data
         print("Evaluation metrics on test set:")
         pprint(metrics)
+        save_roc(avg_fpr_scores, avg_tpr_scores, FLAGS.dataset.split("/")[0])
 
         # stop queue runners
         coord.request_stop()
