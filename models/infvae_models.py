@@ -24,7 +24,7 @@ class InfVAECascades(Model):
         # self.graph = networkx.from_numpy_array(adj)
         self.k_list = [10, 50, 100]  # size of rank list for evaluation.
         self.f1_k_list = list(range(1, 10)) + list(range(10, 81, 5))
-        self.roc_k_list = range(1, num_nodes + 1)
+        self.roc_k_list = list(range(1, num_nodes + 1, 10))
         # Prepare train, test, and val examples -- use max_seq_length --
         train_examples, train_lengths, train_targets, train_masks, train_examples_times, train_targets_times = \
             prepare_sequences(train_examples, train_examples_times, max_len=FLAGS.max_seq_length, mode='train')
@@ -261,17 +261,17 @@ class InfVAECascades(Model):
             self.outputs = tf.matmul(self.attended_embeddings, tf.transpose(
                 self.receiver_embeddings))  # (batch_size, num_users)
 
-            _, self.top_k = tf.nn.top_k(self.outputs, k=200)  # (batch_size, 200)
+            # _, self.top_k = tf.nn.top_k(self.outputs, k=200)  # (batch_size, 200)
+            output_nodes = tf.experimental.numpy.argsort(self.outputs)[::-1]  # (batch_size, num_nodes)
+            self.top_k = output_nodes[:200]
 
             # Remove seed users from the predicted rank list.
             self.top_k_filter = tf.compat.v1.py_func(remove_seeds, [self.top_k, self.inputs], tf.int32)
-            output_filter = tf.compat.v1.py_func(remove_seeds, [self.outputs, self.inputs], tf.int32)
+            output_filter = tf.compat.v1.py_func(remove_seeds, [output_nodes, self.inputs], tf.int32)
 
             masks = tf.cast(tf.reshape(
                 tf.compat.v1.py_func(get_masks, [self.top_k_filter, self.inputs],
                                      tf.int32), [-1]), tf.bool)
-            output_masks = tf.cast(tf.reshape(
-                tf.compat.v1.py_func(get_masks, [output_filter, self.inputs], tf.int32), [-1]), tf.bool)
 
             relevance_scores_all = tf.compat.v1.py_func(get_relevance_scores, [self.top_k_filter, self.targets],
                                                         tf.bool)
@@ -285,7 +285,7 @@ class InfVAECascades(Model):
             self.relevance_scores = tf.cast(tf.boolean_mask(tf.cast(relevance_scores_all,
                                                                     tf.float32), masks), tf.int32)
             output_relevance_scores = tf.cast(tf.boolean_mask(tf.cast(output_relevance_scores_all,
-                                                                      tf.float32), output_masks), tf.int32)
+                                                                      tf.float32), masks), tf.int32)
             # Metric score computation.
             self.recall_scores = [
                 tf.compat.v1.py_func(mean_recall_at_k, [self.relevance_scores, k, m],
@@ -302,9 +302,16 @@ class InfVAECascades(Model):
                 for k in self.f1_k_list
             ]
 
+            # self.fpr_scores = []
+            # self.tpr_scores = []
+
             ir_counts = self.num_nodes - in_counts - m  # Number of irrelevant candidates
             self.fpr_scores = [
-                tf.compat.v1.py_func(mean_fpr_at_k, [output_relevance_scores, k, ir_counts], tf.float32)
+                tf.compat.v1.py_func(mean_fpr_at_k,
+                                     [output_relevance_scores, k, ir_counts
+                                      # , in_counts, self.inputs, output_nodes, self.targets, m
+                                      ],
+                                     tf.float32)
                 for k in self.roc_k_list
             ]
 

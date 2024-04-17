@@ -181,7 +181,7 @@ def main(**kwargs):
                 total_samples = 0
                 num_eval_k = len(CoAtt.k_list)
                 num_eval_k_f1 = len(CoAtt.f1_k_list)
-                num_eval_k_roc = num_nodes  # ROC curve: FPR over TPR
+                num_eval_k_roc = len(CoAtt.roc_k_list)  # ROC curve: FPR over TPR
                 avg_map_scores, avg_recall_scores = [0.] * num_eval_k, [0.] * num_eval_k
                 avg_f1_scores = [0.] * num_eval_k_f1
                 avg_fpr_scores, avg_tpr_scores = [0.] * num_eval_k_roc, [0.] * num_eval_k_roc

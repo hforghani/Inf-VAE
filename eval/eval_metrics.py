@@ -28,13 +28,33 @@ def recall_at_k(relevance_score, k, m):
     return np.sum(relevance_score) / float(m)
 
 
-def fpr_at_k(relevance_score, k, ir_count):
+def fpr_at_k(relevance_score, k, ir_count
+             # , in_count, inp, out, target, m
+             ):
     """ False positive rate at K given binary relevance scores. """
     assert k >= 1
     relevance_score = np.asarray(relevance_score)[:k] != 0
     if relevance_score.size != k:
         raise ValueError('Relevance score length < K')
-    return (relevance_score.size - np.sum(relevance_score)) / float(ir_count)
+    # fp = len(set(out[:k]) - set(target))
+    fp = relevance_score.size - np.sum(relevance_score)
+
+    # logging.info(f"k = {k}\n"
+    #              f"in_count = {in_count}\n"
+    #              f"input = {inp}\n"
+    #              f"output = {out}\n"
+    #              f"target = {target}\n"
+    #              f"relevant count = {m}\n"
+    #              f"relevance_score = {''.join('1' if r else '0' for r in relevance_score)}\n"
+    #              f"relevance_score.size = {relevance_score.size}\n"
+    #              f"np.sum(relevance_score) = {np.sum(relevance_score)}\n"
+    #              f"fp1 = {relevance_score.size - np.sum(relevance_score)}\n"
+    #              f"fp2 = {fp}\n"
+    #              f"ir_count = {ir_count}\n")
+
+    assert fp <= ir_count
+
+    return fp / ir_count
 
 
 def f1_at_k(relevance_score, k, m):
@@ -66,14 +86,19 @@ def mean_recall_at_k(relevance_scores, k, m_list):
     return mean_r_at_k
 
 
-def mean_fpr_at_k(relevance_scores, k, ir_list):
+def mean_fpr_at_k(relevance_scores, k, ir_list
+                  # , in_counts, inputs, outputs, targets, m_list
+                  ):
     """ Mean Recall at K:  ir_list is a list containing # irrelevant candidate entities for each data point. """
-    # logging.info(f"in_counts[0] = {in_counts[0]}\n"
-    #              f"inputs[0] = {inputs[0]}\n"
-    #              f"targets[0] = {targets[0]}")
-    mean_fpr_at_k = np.mean([fpr_at_k(r, k, ir_count) for r, ir_count in zip(relevance_scores, ir_list)]).astype(
-        np.float32)
-    return mean_fpr_at_k
+    mean_fpr = np.mean(
+        [fpr_at_k(r, k, ir_count,
+                  # in_count, inp, out, target, m
+                  ) for r, ir_count
+         # , in_count, inp, out, target, m
+         in zip(relevance_scores, ir_list
+                # , in_counts, inputs, outputs, targets, m_list
+                )]).astype(np.float32)
+    return mean_fpr
 
 
 def mean_f1_at_k(relevance_scores, k, m_list):
