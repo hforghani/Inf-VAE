@@ -298,7 +298,7 @@ class InfVAECascades(Model):
             ]
 
             self.f1_scores = [
-                tf.compat.v1.py_func(mean_f1_at_k, [self.relevance_scores, k, m], tf.float32)
+                tf.compat.v1.py_func(mean_f1_at_k, [output_relevance_scores, k, m], tf.float32)
                 for k in self.f1_k_list
             ]
 
