@@ -2,8 +2,6 @@ from __future__ import division, print_function
 
 import math
 
-import networkx
-
 from eval.eval_metrics import *
 from models.graph_ae import GCN, MLP
 from models.models import Model
@@ -261,13 +259,13 @@ class InfVAECascades(Model):
             self.outputs = tf.matmul(self.attended_embeddings, tf.transpose(
                 self.receiver_embeddings))  # (batch_size, num_users)
 
-            # _, self.top_k = tf.nn.top_k(self.outputs, k=200)  # (batch_size, 200)
-            output_nodes = tf.experimental.numpy.argsort(self.outputs)[::-1]  # (batch_size, num_nodes)
-            self.top_k = output_nodes[:200]
+            _, self.top_k = tf.nn.top_k(self.outputs, k=200)  # (batch_size, 200)
+            # output_nodes = tf.experimental.numpy.argsort(self.outputs)[::-1]  # (batch_size, num_nodes)
+            # self.top_k = output_nodes[:200]
 
             # Remove seed users from the predicted rank list.
             self.top_k_filter = tf.compat.v1.py_func(remove_seeds, [self.top_k, self.inputs], tf.int32)
-            output_filter = tf.compat.v1.py_func(remove_seeds, [output_nodes, self.inputs], tf.int32)
+            # output_filter = tf.compat.v1.py_func(remove_seeds, [output_nodes, self.inputs], tf.int32)
 
             masks = tf.cast(tf.reshape(
                 tf.compat.v1.py_func(get_masks, [self.top_k_filter, self.inputs],
@@ -275,17 +273,17 @@ class InfVAECascades(Model):
 
             relevance_scores_all = tf.compat.v1.py_func(get_relevance_scores, [self.top_k_filter, self.targets],
                                                         tf.bool)
-            output_relevance_scores_all = tf.compat.v1.py_func(get_relevance_scores, [output_filter, self.targets],
-                                                               tf.bool)
+            # output_relevance_scores_all = tf.compat.v1.py_func(get_relevance_scores, [output_filter, self.targets],
+            #                                                    tf.bool)
 
             # Number of relevant candidates.
             m = tf.reduce_sum(tf.reduce_max(tf.one_hot(self.targets, self.num_nodes), axis=1), -1)
-            in_counts = tf.reduce_sum(tf.reduce_max(tf.one_hot(self.inputs, self.num_nodes), axis=1), -1) - 1
+            # in_counts = tf.reduce_sum(tf.reduce_max(tf.one_hot(self.inputs, self.num_nodes), axis=1), -1) - 1
 
             self.relevance_scores = tf.cast(tf.boolean_mask(tf.cast(relevance_scores_all,
                                                                     tf.float32), masks), tf.int32)
-            output_relevance_scores = tf.cast(tf.boolean_mask(tf.cast(output_relevance_scores_all,
-                                                                      tf.float32), masks), tf.int32)
+            # output_relevance_scores = tf.cast(tf.boolean_mask(tf.cast(output_relevance_scores_all,
+            #                                                           tf.float32), masks), tf.int32)
             # Metric score computation.
             self.recall_scores = [
                 tf.compat.v1.py_func(mean_recall_at_k, [self.relevance_scores, k, m],
@@ -298,27 +296,28 @@ class InfVAECascades(Model):
             ]
 
             self.f1_scores = [
-                tf.compat.v1.py_func(mean_f1_at_k, [output_relevance_scores, k, m], tf.float32)
+                tf.compat.v1.py_func(mean_f1_at_k, [self.relevance_scores, k, m], tf.float32)
                 for k in self.f1_k_list
             ]
 
-            # self.fpr_scores = []
-            # self.tpr_scores = []
+            # ir_counts = self.num_nodes - in_counts - m  # Number of irrelevant candidates
+            # self.fpr_scores = [
+            #     tf.compat.v1.py_func(mean_fpr_at_k,
+            #                          [output_relevance_scores, k, ir_counts
+            #                           # , in_counts, self.inputs, output_nodes, self.targets, m
+            #                           ],
+            #                          tf.float32)
+            #     for k in self.roc_k_list
+            # ]
+            #
+            # self.tpr_scores = [
+            #     tf.compat.v1.py_func(mean_recall_at_k, [output_relevance_scores, k, m], tf.float32)
+            #     for k in self.roc_k_list
+            # ]
 
-            ir_counts = self.num_nodes - in_counts - m  # Number of irrelevant candidates
-            self.fpr_scores = [
-                tf.compat.v1.py_func(mean_fpr_at_k,
-                                     [output_relevance_scores, k, ir_counts
-                                      # , in_counts, self.inputs, output_nodes, self.targets, m
-                                      ],
-                                     tf.float32)
-                for k in self.roc_k_list
-            ]
-
-            self.tpr_scores = [
-                tf.compat.v1.py_func(mean_recall_at_k, [output_relevance_scores, k, m], tf.float32)
-                for k in self.roc_k_list
-            ]
+            self.fpr_scores = tf.zeros((1, len(self.roc_k_list)))
+            self.tpr_scores = tf.zeros((1, len(self.roc_k_list)))
+            # self.f1_scores = tf.zeros((1, len(self.f1_k_list)))
 
     def init_optimizer(self):
         """ Initialize Adam optimizer for Co-attentive cascade model. """

@@ -220,7 +220,7 @@ def main(**kwargs):
                 for k in range(0, num_eval_k_f1):
                     K = CoAtt.f1_k_list[k]
                     metrics[f"F1@{K:0>3}"] = avg_f1_scores[k]
-                metrics["auc_roc"] = auc_roc(avg_fpr_scores, avg_tpr_scores)
+                # metrics["auc_roc"] = auc_roc(avg_fpr_scores, avg_tpr_scores)
 
                 logger.update_record(avg_map_scores[0], (all_outputs, all_targets, metrics))
 
@@ -251,7 +251,7 @@ def main(**kwargs):
         outputs, targets, metrics = logger.best_data
         print("Evaluation metrics on test set:")
         pprint(metrics)
-        save_roc(avg_fpr_scores, avg_tpr_scores, FLAGS.dataset.split("/")[0])
+        # save_roc(avg_fpr_scores, avg_tpr_scores, FLAGS.dataset.split("/")[0])
 
         # stop queue runners
         coord.request_stop()
