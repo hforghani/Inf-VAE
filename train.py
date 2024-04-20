@@ -70,6 +70,10 @@ def main(**kwargs):
         val_cascades, val_times = load_cascades(FLAGS.dataset, mode='val')
         test_cascades, test_times = load_cascades(FLAGS.dataset, mode='test')
 
+        train_trees = load_trees(FLAGS.dataset, mode='train')
+        val_trees = load_trees(FLAGS.dataset, mode='val')
+        test_trees = load_trees(FLAGS.dataset, mode='test')
+
         # Truncating input data based on max_seq_length.
         train_examples, train_examples_times = get_data_set(train_cascades, train_times,
                                                             max_len=FLAGS.max_seq_length,
@@ -88,10 +92,10 @@ def main(**kwargs):
 
         print("Init models")
         VGAE = InfVAESocial(X.shape[1], A, layers_config, mode='train', feats=X)
-        CoAtt = InfVAECascades(num_nodes + 1, train_examples, train_examples_times,
-                               val_examples, val_examples_times,
-                               test_examples, test_examples_times,
-                               # A,
+        CoAtt = InfVAECascades(num_nodes + 1, train_examples, train_examples_times, train_trees,
+                               val_examples, val_examples_times, val_trees,
+                               test_examples, test_examples_times, test_trees,
+                               A,
                                logging=True, mode='feed')
 
         # Initialize session
@@ -251,7 +255,7 @@ def main(**kwargs):
         outputs, targets, metrics = logger.best_data
         print("Evaluation metrics on test set:")
         pprint(metrics)
-        save_roc(avg_fpr_scores, avg_tpr_scores, FLAGS.dataset.split("/")[0])
+        save_roc(avg_fpr_scores, avg_tpr_scores, dataset=FLAGS.dataset.split("/")[0])
 
         # stop queue runners
         coord.request_stop()

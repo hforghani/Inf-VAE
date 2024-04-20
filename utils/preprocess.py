@@ -1,9 +1,11 @@
 from __future__ import print_function
 
+import json
 import logging
 import os
 import pickle
 from datetime import datetime
+from typing import List, Tuple
 
 import networkx as nx
 import numpy as np
@@ -18,6 +20,7 @@ FLAGS = flags.FLAGS
 
 class ExpLogger:
     """ Experiment logger. """
+
     def __init__(self, name, cmd_print=True, log_file=None, spreadsheet=None, data_dir=None):
         self.datetime_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.name = name + "_" + self.datetime_str
@@ -247,6 +250,16 @@ def load_cascades(dataset_str, mode='train'):
             cascades.append(cascade)
             time_stamps.append(time_stamp)
     return cascades, time_stamps
+
+
+def load_trees(dataset_str, mode='train') -> List[List[Tuple[int, int]]]:
+    """
+    Return list of trees. Each tree is a list of the edges.
+    """
+    path = f"trees-{mode}.json"
+    with open("data/{}/{}".format(dataset_str, path), 'rb') as f:
+        trees = json.load(f)
+    return trees
 
 
 def prepare_batch_sequences(input_sequences, target_sequences, batch_size):

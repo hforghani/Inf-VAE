@@ -16,12 +16,13 @@ FLAGS = flags.FLAGS
 class InfVAECascades(Model):
     """ Diffusion Cascades component of Inf-VAE. """
 
-    def __init__(self, num_nodes, train_examples, train_examples_times, val_examples, val_examples_times,
-                 test_examples, test_examples_times,
-                 # adj,
+    def __init__(self, num_nodes, train_examples, train_examples_times, train_trees,
+                 val_examples, val_examples_times, val_trees,
+                 test_examples, test_examples_times, test_trees,
+                 adj,
                  mode='feed', **kwargs):
         super(InfVAECascades, self).__init__(**kwargs)
-        # self.graph = networkx.from_numpy_array(adj)
+        self.graph = networkx.from_numpy_array(adj)
         self.k_list = [10, 50, 100]  # size of rank list for evaluation.
         self.f1_k_list = list(range(1, 10)) + list(range(10, 81, 5))
         self.roc_k_list = list(range(1, num_nodes + 1, 10))
@@ -54,24 +55,24 @@ class InfVAECascades(Model):
         self.embedding_size = FLAGS.latent_dim
         self.mode = mode
 
-        self.inputs_train, self.targets_train = train_examples, train_targets
+        self.inputs_train, self.targets_train, self.trees_train = train_examples, train_targets, train_trees
         # logging.info(f"train_examples = {train_examples}")
         # logging.info(f"train_targets = {train_targets}")
         self.inputs_length_train, self.masks_train = train_lengths, train_masks
         self.inputs_train_times, self.targets_train_times = train_examples_times, train_targets_times
 
-        self.inputs_val, self.targets_val = val_examples, val_targets
+        self.inputs_val, self.targets_val, self.trees_val = val_examples, val_targets, val_trees
         self.inputs_length_val, self.masks_val = val_lengths, val_masks
         self.inputs_val_times, self.targets_val_times = val_examples_times, val_targets_times
 
-        self.inputs_test, self.targets_test = test_examples, test_targets
+        self.inputs_test, self.targets_test, self.trees_test = test_examples, test_targets, test_trees
         self.inputs_length_test, self.masks_test = test_lengths, test_masks
         self.inputs_test_times, self.targets_test_times = test_examples_times, test_targets_times
 
         self.num_nodes = num_nodes
         self.global_step, self.is_val, self.is_test, self.z_vae_embeddings = self._init_placeholders()
 
-        self.inputs, self.inputs_length, self.targets, self.masks, self.inputs_times, self.targets_times = \
+        self.inputs, self.inputs_length, self.targets, self.trees, self.masks, self.inputs_times, self.targets_times = \
             self.create_batch_queues()
 
         self.batch_size = tf.shape(self.inputs)[0]
@@ -90,22 +91,23 @@ class InfVAECascades(Model):
         num_threads = FLAGS.batch_queue_threads
 
         # Define train/val/test data batches by reading from input sequences using slice_input_producer.
-        [input_train, length_train, target_train, masks_train, input_train_times, target_train_times] = \
+        [input_train, length_train, target_train, trees_train, masks_train, input_train_times, target_train_times] = \
             tf.compat.v1.train.slice_input_producer([self.inputs_train, self.inputs_length_train,
-                                                     self.targets_train, self.masks_train,
+                                                     self.targets_train, self.trees_train, self.masks_train,
                                                      self.inputs_train_times, self.targets_train_times],
                                                     shuffle=True, capacity=FLAGS.cascade_batch_size)
 
-        [input_val, length_val, target_val, masks_val, input_val_times, target_val_times] = \
+        [input_val, length_val, target_val, trees_val, masks_val, input_val_times, target_val_times] = \
             tf.compat.v1.train.slice_input_producer([self.inputs_val, self.inputs_length_val,
-                                                     self.targets_val, self.masks_val,
+                                                     self.targets_val, self.trees_val, self.masks_val,
                                                      self.inputs_val_times, self.targets_val_times],
                                                     shuffle=False, capacity=FLAGS.cascade_batch_size)
 
-        [input_test, length_test, target_test, masks_test, input_test_times, target_test_times] = \
-            tf.compat.v1.train.slice_input_producer([self.inputs_test, self.inputs_length_test, self.targets_test,
-                                                     self.masks_test, self.inputs_test_times, self.targets_test_times],
-                                                    shuffle=False, capacity=FLAGS.cascade_batch_size)
+        [input_test, length_test, target_test, trees_test, masks_test, input_test_times, target_test_times] = \
+            tf.compat.v1.train.slice_input_producer(
+                [self.inputs_test, self.inputs_length_test, self.targets_test, self.trees_test,
+                 self.masks_test, self.inputs_test_times, self.targets_test_times],
+                shuffle=False, capacity=FLAGS.cascade_batch_size)
 
         min_after_dequeue = FLAGS.cascade_batch_size
         q_size = min_after_dequeue + (num_threads + 1) * FLAGS.cascade_batch_size
@@ -113,19 +115,22 @@ class InfVAECascades(Model):
         # Initialize train/val/test queues.
         train_queue = tf.queue.RandomShuffleQueue(capacity=q_size, dtypes=[tf.int32] * 6,
                                                   shapes=[input_train.get_shape(), length_train.get_shape(),
-                                                          target_train.get_shape(), masks_train.get_shape(),
+                                                          target_train.get_shape(), trees_train.get_shape(),
+                                                          masks_train.get_shape(),
                                                           input_train_times.get_shape(),
                                                           target_train_times.get_shape()],
                                                   min_after_dequeue=min_after_dequeue)
 
         val_queue = tf.queue.PaddingFIFOQueue(capacity=FLAGS.cascade_batch_size, dtypes=[tf.int32] * 6,
                                               shapes=[input_val.get_shape(), length_val.get_shape(),
-                                                      target_val.get_shape(), masks_val.get_shape(),
+                                                      target_val.get_shape(), trees_val.get_shape(),
+                                                      masks_val.get_shape(),
                                                       input_val_times.get_shape(), target_val_times.get_shape()])
 
         test_queue = tf.queue.PaddingFIFOQueue(capacity=FLAGS.cascade_batch_size, dtypes=[tf.int32] * 6,
                                                shapes=[input_test.get_shape(), length_test.get_shape(),
-                                                       target_test.get_shape(), masks_test.get_shape(),
+                                                       target_test.get_shape(), trees_test.get_shape(),
+                                                       masks_test.get_shape(),
                                                        input_test_times.get_shape(), target_test_times.get_shape()])
 
         # Define train/val/test enqueue operations.
@@ -174,7 +179,7 @@ class InfVAECascades(Model):
         return data_batch
 
     def _init_placeholders(self):
-        """" Initialize minimal set of placeholders train/val/test flags, and fixed social embeddings. """
+        """ Initialize minimal set of placeholders train/val/test flags, and fixed social embeddings. """
         global_step = tf.Variable(0, trainable=False, name='global_step')
         is_val = tf.compat.v1.placeholder(tf.bool, name='is_val')
         is_test = tf.compat.v1.placeholder(tf.bool, name='is_test')
@@ -261,13 +266,13 @@ class InfVAECascades(Model):
             self.outputs = tf.matmul(self.attended_embeddings, tf.transpose(
                 self.receiver_embeddings))  # (batch_size, num_users)
 
-            # _, self.top_k = tf.nn.top_k(self.outputs, k=200)  # (batch_size, 200)
-            output_nodes = tf.experimental.numpy.argsort(self.outputs)[::-1]  # (batch_size, num_nodes)
-            self.top_k = output_nodes[:200]
+            _, self.top_k = tf.nn.top_k(self.outputs, k=200)  # (batch_size, 200)
+            # output_nodes = tf.experimental.numpy.argsort(self.outputs)[::-1]  # (batch_size, num_nodes)
+            # self.top_k = output_nodes[:200]
 
             # Remove seed users from the predicted rank list.
             self.top_k_filter = tf.compat.v1.py_func(remove_seeds, [self.top_k, self.inputs], tf.int32)
-            output_filter = tf.compat.v1.py_func(remove_seeds, [output_nodes, self.inputs], tf.int32)
+            # output_filter = tf.compat.v1.py_func(remove_seeds, [output_nodes, self.inputs], tf.int32)
 
             masks = tf.cast(tf.reshape(
                 tf.compat.v1.py_func(get_masks, [self.top_k_filter, self.inputs],
@@ -275,17 +280,18 @@ class InfVAECascades(Model):
 
             relevance_scores_all = tf.compat.v1.py_func(get_relevance_scores, [self.top_k_filter, self.targets],
                                                         tf.bool)
-            output_relevance_scores_all = tf.compat.v1.py_func(get_relevance_scores, [output_filter, self.targets],
-                                                               tf.bool)
+            # output_relevance_scores_all = tf.compat.v1.py_func(get_relevance_scores, [output_filter, self.targets],
+            #                                                    tf.bool)
 
             # Number of relevant candidates.
             m = tf.reduce_sum(tf.reduce_max(tf.one_hot(self.targets, self.num_nodes), axis=1), -1)
-            in_counts = tf.reduce_sum(tf.reduce_max(tf.one_hot(self.inputs, self.num_nodes), axis=1), -1) - 1
+            # in_counts = tf.reduce_sum(tf.reduce_max(tf.one_hot(self.inputs, self.num_nodes), axis=1), -1) - 1
 
             self.relevance_scores = tf.cast(tf.boolean_mask(tf.cast(relevance_scores_all,
                                                                     tf.float32), masks), tf.int32)
-            output_relevance_scores = tf.cast(tf.boolean_mask(tf.cast(output_relevance_scores_all,
-                                                                      tf.float32), masks), tf.int32)
+            # output_relevance_scores = tf.cast(tf.boolean_mask(tf.cast(output_relevance_scores_all,
+            #                                                           tf.float32), masks), tf.int32)
+
             # Metric score computation.
             self.recall_scores = [
                 tf.compat.v1.py_func(mean_recall_at_k, [self.relevance_scores, k, m],
@@ -297,28 +303,34 @@ class InfVAECascades(Model):
                 for k in self.k_list
             ]
 
-            self.f1_scores = [
-                tf.compat.v1.py_func(mean_f1_at_k, [output_relevance_scores, k, m], tf.float32)
+            # self.f1_scores = [
+            #     tf.compat.v1.py_func(mean_f1_at_k, [output_relevance_scores, k, m], tf.float32)
+            #     for k in self.f1_k_list
+            # ]
+
+            # ir_counts = self.num_nodes - in_counts - m  # Number of irrelevant candidates
+            # self.fpr_scores = [
+            #     tf.compat.v1.py_func(mean_fpr_at_k,
+            #                          [output_relevance_scores, k, ir_counts
+            #                           # , in_counts, self.inputs, output_nodes, self.targets, m
+            #                           ],
+            #                          tf.float32)
+            #     for k in self.roc_k_list
+            # ]
+            #
+            # self.tpr_scores = [
+            #     tf.compat.v1.py_func(mean_recall_at_k, [output_relevance_scores, k, m], tf.float32)
+            #     for k in self.roc_k_list
+            # ]
+
+            self.graph_distances = [
+                tf.compat.v1.py_func(mean_graph_dist_at_k, [self.top_k_filter, self.inputs, k, m], tf.float32)
                 for k in self.f1_k_list
             ]
 
-            # self.fpr_scores = []
-            # self.tpr_scores = []
-
-            ir_counts = self.num_nodes - in_counts - m  # Number of irrelevant candidates
-            self.fpr_scores = [
-                tf.compat.v1.py_func(mean_fpr_at_k,
-                                     [output_relevance_scores, k, ir_counts
-                                      # , in_counts, self.inputs, output_nodes, self.targets, m
-                                      ],
-                                     tf.float32)
-                for k in self.roc_k_list
-            ]
-
-            self.tpr_scores = [
-                tf.compat.v1.py_func(mean_recall_at_k, [output_relevance_scores, k, m], tf.float32)
-                for k in self.roc_k_list
-            ]
+            self.f1_scores = [0] * len(self.f1_k_list)
+            self.fpr_scores = [0] * len(self.roc_k_list)
+            self.tpr_scores = [0] * len(self.roc_k_list)
 
     def init_optimizer(self):
         """ Initialize Adam optimizer for Co-attentive cascade model. """
