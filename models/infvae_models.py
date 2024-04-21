@@ -289,11 +289,11 @@ class InfVAECascades(Model):
             #     tf.compat.v1.py_func(mean_recall_at_k, [self.relevance_scores, k, m],
             #                          tf.float32) for k in self.k_list
             # ]
-            #
-            # self.map_scores = [
-            #     tf.compat.v1.py_func(MAP, [self.relevance_scores, k, m], tf.float32)
-            #     for k in self.k_list
-            # ]
+
+            self.map_scores = [
+                tf.compat.v1.py_func(MAP, [self.relevance_scores, k, m], tf.float32)
+                for k in self.k_list
+            ]
 
             self.f1_scores = [
                 tf.compat.v1.py_func(mean_f1_at_k, [self.relevance_scores, k, m], tf.float32)
@@ -316,7 +316,7 @@ class InfVAECascades(Model):
             # ]
 
             self.recall_scores = tf.zeros((1, len(self.k_list)))
-            self.map_scores = tf.zeros((1, len(self.k_list)))
+            # self.map_scores = tf.zeros((1, len(self.k_list)))
             self.fpr_scores = tf.zeros((1, len(self.roc_k_list)))
             self.tpr_scores = tf.zeros((1, len(self.roc_k_list)))
             # self.f1_scores = tf.zeros((1, len(self.f1_k_list)))
