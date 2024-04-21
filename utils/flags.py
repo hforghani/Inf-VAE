@@ -43,6 +43,11 @@ flags.DEFINE_integer('vae_batch_size', 64, 'Batch size VAE')
 flags.DEFINE_float('vae_lr', 0.01, 'Initial learning rate for vae model.')
 flags.DEFINE_float('vae_weight_decay', 1e-4, 'Weight for L2 loss on embedding matrix.')
 
+# Metrics
+flags.DEFINE_boolean('recall', False, 'Calculate recall or not')
+flags.DEFINE_boolean('f1', False, 'Calculate F1-measure or not')
+flags.DEFINE_boolean('auc_roc', False, 'Calculate AUC_ROC or not')
+
 # Ray parameters
 flags.DEFINE_string('node-ip-address', None, 'Not used; only to be compatible with ray')
 flags.DEFINE_string('node-manager-port', None, 'Not used; only to be compatible with ray')

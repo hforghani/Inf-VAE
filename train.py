@@ -180,11 +180,15 @@ def main(**kwargs):
 
                 total_samples = 0
                 num_eval_k = len(CoAtt.k_list)
-                num_eval_k_f1 = len(CoAtt.f1_k_list)
-                num_eval_k_roc = len(CoAtt.roc_k_list)  # ROC curve: FPR over TPR
-                avg_map_scores, avg_recall_scores = [0.] * num_eval_k, [0.] * num_eval_k
-                avg_f1_scores = [0.] * num_eval_k_f1
-                # avg_fpr_scores, avg_tpr_scores = [0.] * num_eval_k_roc, [0.] * num_eval_k_roc
+                avg_map_scores = [0.] * num_eval_k
+                if FLAGS.recall:
+                    avg_recall_scores = [0.] * num_eval_k
+                if FLAGS.f1:
+                    num_eval_k_f1 = len(CoAtt.f1_k_list)
+                    avg_f1_scores = [0.] * num_eval_k_f1
+                if FLAGS.auc_roc:
+                    num_eval_k_roc = len(CoAtt.roc_k_list)  # ROC curve: FPR over TPR
+                    avg_fpr_scores, avg_tpr_scores = [0.] * num_eval_k_roc, [0.] * num_eval_k_roc
 
                 all_outputs, all_targets = [], []
                 for b in range(0, CoAtt.num_test_batches):
@@ -195,32 +199,41 @@ def main(**kwargs):
                     avg_map_scores = list(
                         map(operator.add, map(operator.mul, maps,
                                               [num_samples] * num_eval_k), avg_map_scores))
-                    # avg_recall_scores = list(map(operator.add, map(operator.mul, recalls,
-                    #                                                [num_samples] * num_eval_k), avg_recall_scores))
-                    avg_f1_scores = list(map(operator.add, map(operator.mul, f1s,
-                                                               [num_samples] * num_eval_k_f1), avg_f1_scores))
-                    # avg_fpr_scores = list(map(operator.add, map(operator.mul, fprs,
-                    #                                             [num_samples] * num_eval_k_roc), avg_fpr_scores))
-                    # avg_tpr_scores = list(map(operator.add, map(operator.mul, tprs,
-                    #                                             [num_samples] * num_eval_k_roc), avg_tpr_scores))
+                    if FLAGS.recall:
+                        avg_recall_scores = list(map(operator.add, map(operator.mul, recalls,
+                                                                       [num_samples] * num_eval_k), avg_recall_scores))
+                    if FLAGS.f1:
+                        avg_f1_scores = list(map(operator.add, map(operator.mul, f1s,
+                                                                   [num_samples] * num_eval_k_f1), avg_f1_scores))
+                    if FLAGS.auc_roc:
+                        avg_fpr_scores = list(map(operator.add, map(operator.mul, fprs,
+                                                                    [num_samples] * num_eval_k_roc), avg_fpr_scores))
+                        avg_tpr_scores = list(map(operator.add, map(operator.mul, tprs,
+                                                                    [num_samples] * num_eval_k_roc), avg_tpr_scores))
                     total_samples += num_samples
                 all_outputs = np.vstack(all_outputs)
                 all_targets = np.vstack(all_targets)
                 avg_map_scores = list(map(operator.truediv, avg_map_scores, [total_samples] * num_eval_k))
-                # avg_recall_scores = list(map(operator.truediv, avg_recall_scores, [total_samples] * num_eval_k))
-                avg_f1_scores = list(map(operator.truediv, avg_f1_scores, [total_samples] * num_eval_k_f1))
-                # avg_fpr_scores = list(map(operator.truediv, avg_fpr_scores, [total_samples] * num_eval_k_roc))
-                # avg_tpr_scores = list(map(operator.truediv, avg_tpr_scores, [total_samples] * num_eval_k_roc))
+                if FLAGS.recall:
+                    avg_recall_scores = list(map(operator.truediv, avg_recall_scores, [total_samples] * num_eval_k))
+                if FLAGS.f1:
+                    avg_f1_scores = list(map(operator.truediv, avg_f1_scores, [total_samples] * num_eval_k_f1))
+                if FLAGS.auc_roc:
+                    avg_fpr_scores = list(map(operator.truediv, avg_fpr_scores, [total_samples] * num_eval_k_roc))
+                    avg_tpr_scores = list(map(operator.truediv, avg_tpr_scores, [total_samples] * num_eval_k_roc))
 
                 metrics = dict()
                 for k in range(0, num_eval_k):
                     K = CoAtt.k_list[k]
                     metrics[f"MAP@{K:0>3}"] = avg_map_scores[k]
-                #     metrics[f"Recall@{K:0>3}"] = avg_recall_scores[k]
-                for k in range(0, num_eval_k_f1):
-                    K = CoAtt.f1_k_list[k]
-                    metrics[f"F1@{K:0>3}"] = avg_f1_scores[k]
-                # metrics["auc_roc"] = auc_roc(avg_fpr_scores, avg_tpr_scores)
+                    if FLAGS.recall:
+                        metrics[f"Recall@{K:0>3}"] = avg_recall_scores[k]
+                if FLAGS.f1:
+                    for k in range(0, num_eval_k_f1):
+                        K = CoAtt.f1_k_list[k]
+                        metrics[f"F1@{K:0>3}"] = avg_f1_scores[k]
+                if FLAGS.auc_roc:
+                    metrics["auc_roc"] = auc_roc(avg_fpr_scores, avg_tpr_scores)
 
                 logger.update_record(avg_map_scores[0], (all_outputs, all_targets, metrics))
 
@@ -251,7 +264,8 @@ def main(**kwargs):
         outputs, targets, metrics = logger.best_data
         print("Evaluation metrics on test set:")
         pprint(metrics)
-        # save_roc(avg_fpr_scores, avg_tpr_scores, FLAGS.dataset.split("/")[0])
+        if FLAGS.auc_roc:
+            save_roc(avg_fpr_scores, avg_tpr_scores, FLAGS.dataset.split("/")[0])
 
         # stop queue runners
         coord.request_stop()
