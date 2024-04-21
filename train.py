@@ -70,6 +70,9 @@ def main(**kwargs):
         val_cascades, val_times = load_cascades(FLAGS.dataset, mode='val')
         test_cascades, test_times = load_cascades(FLAGS.dataset, mode='test')
 
+        test_seeds = load_seeds(FLAGS.dataset, test_cascades, mode='test')
+        # logging.info(f"test_seeds = {test_seeds}")
+
         # Truncating input data based on max_seq_length.
         train_examples, train_examples_times = get_data_set(train_cascades, train_times,
                                                             max_len=FLAGS.max_seq_length,
@@ -79,8 +82,9 @@ def main(**kwargs):
                                                         mode='val')
         test_examples, test_examples_times = get_data_set(test_cascades, test_times,
                                                           max_len=FLAGS.max_seq_length,
-                                                          test_min_percent=FLAGS.test_min_percent,
-                                                          test_max_percent=FLAGS.test_max_percent,
+                                                          # test_min_percent=FLAGS.test_min_percent,
+                                                          # test_max_percent=FLAGS.test_max_percent,
+                                                          seed_counts=test_seeds,
                                                           mode='test')
 
         print("# nodes in graph", num_nodes)

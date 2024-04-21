@@ -1,10 +1,12 @@
 from __future__ import print_function
 
+import json
 import logging
 import os
 import pickle
 from datetime import datetime
 
+import networkx
 import networkx as nx
 import numpy as np
 import scipy.sparse as sp
@@ -18,6 +20,7 @@ FLAGS = flags.FLAGS
 
 class ExpLogger:
     """ Experiment logger. """
+
     def __init__(self, name, cmd_print=True, log_file=None, spreadsheet=None, data_dir=None):
         self.datetime_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.name = name + "_" + self.datetime_str
@@ -159,7 +162,8 @@ def sample_mask(idx, l):
 extra_tokens = ['_GO', 'EOS']
 
 
-def get_data_set(cascades, timestamps, max_len=None, test_min_percent=0.1, test_max_percent=0.5, mode='test'):
+# def get_data_set(cascades, timestamps, max_len=None, test_min_percent=0.1, test_max_percent=0.5, mode='test'):
+def get_data_set(cascades, timestamps, max_len=None, seed_counts=None, mode='test'):
     """ Create train/val/test examples from input cascade sequences. Cascade sequences are truncated based on max_len.
     Test examples are sampled with seed set percentage between 10% and 50%. Train/val sets include examples of all
     possible seed sizes. """
@@ -177,7 +181,9 @@ def get_data_set(cascades, timestamps, max_len=None, test_min_percent=0.1, test_
         else:
             dataset_times.append(ts_list[0:max_len])  # truncate
 
-    for cascade, ts_list in zip(dataset, dataset_times):
+    # for cascade, ts_list in zip(dataset, dataset_times):
+    for i in range(len(dataset)):
+        cascade, ts_list = dataset[i], dataset_times[i]
         assert len(cascade) == len(ts_list)
         for j in range(1, len(cascade)):
             seed_set = cascade[0:j]
@@ -188,7 +194,8 @@ def get_data_set(cascades, timestamps, max_len=None, test_min_percent=0.1, test_
             if mode == 'train' or mode == 'val':
                 eval_set.append((seed_set, remain))
                 eval_set_times.append((seed_set_times, remain_times))
-            if mode == 'test' and (test_min_percent < seed_set_percent < test_max_percent):
+            # if mode == 'test' and (test_min_percent < seed_set_percent < test_max_percent):
+            if mode == 'test' and j == seed_counts[i]:
                 eval_set.append((seed_set, remain))
                 eval_set_times.append((seed_set_times, remain_times))
     print("# {} examples {}".format(mode, len(eval_set)))
@@ -247,6 +254,19 @@ def load_cascades(dataset_str, mode='train'):
             cascades.append(cascade)
             time_stamps.append(time_stamp)
     return cascades, time_stamps
+
+
+def load_seeds(dataset_str, cascades, mode='train'):
+    path = f"trees-{mode}.json"
+    with open("data/{}/{}".format(dataset_str, path), 'rb') as f:
+        edges_data = json.load(f)
+    seeds = []
+    for i in range(len(edges_data)):
+        graph = networkx.DiGraph(edges_data[i])
+        graph.add_nodes_from(cascades[i])
+        seed = sum(graph.in_degree(node) == 0 for node in graph)
+        seeds.append(seed)
+    return seeds
 
 
 def prepare_batch_sequences(input_sequences, target_sequences, batch_size):
