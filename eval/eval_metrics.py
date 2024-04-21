@@ -156,8 +156,8 @@ def remove_seeds(top_k, inputs):
     for i in range(0, top_k.shape[0]):
         seeds = set(inputs[i])
         lst = list(top_k[i])  # top-k predicted users.
-        logging.info(f"inputs[{i}] = {inputs[i]}\n"
-                     f"top_k[{i}] = {top_k[i]}")
+        # logging.info(f"inputs[{i}] = {inputs[i]}\n"
+        #              f"top_k[{i}] = {top_k[i]}")
         for s in seeds:
             if s in lst:
                 lst.remove(s)

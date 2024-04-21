@@ -261,7 +261,7 @@ class InfVAECascades(Model):
                 self.receiver_embeddings))  # (batch_size, num_users)
 
             if FLAGS.auc_roc:
-                output_nodes = tf.experimental.numpy.argsort(self.outputs)[::-1]  # (batch_size, num_nodes)
+                _, output_nodes = tf.nn.top_k(self.outputs, k=self.num_nodes)  # (batch_size, num_nodes)
                 self.top_k = output_nodes[:200]
             else:
                 _, self.top_k = tf.nn.top_k(self.outputs, k=200)  # (batch_size, 200)
