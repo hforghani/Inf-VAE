@@ -71,7 +71,7 @@ def main(**kwargs):
         test_cascades, test_times = load_cascades(FLAGS.dataset, mode='test')
 
         test_seeds = load_seeds(FLAGS.dataset, test_cascades, mode='test')
-        # logging.info(f"test_seeds = {test_seeds}")
+        # print(f"test_seeds = {test_seeds}")
 
         # Truncating input data based on max_seq_length.
         train_examples, train_examples_times = get_data_set(train_cascades, train_times,
@@ -95,7 +95,6 @@ def main(**kwargs):
         CoAtt = InfVAECascades(num_nodes + 1, train_examples, train_examples_times,
                                val_examples, val_examples_times,
                                test_examples, test_examples_times,
-                               # A,
                                logging=True, mode='feed')
 
         # Initialize session
@@ -215,6 +214,7 @@ def main(**kwargs):
                         avg_tpr_scores = list(map(operator.add, map(operator.mul, tprs,
                                                                     [num_samples] * num_eval_k_roc), avg_tpr_scores))
                     total_samples += num_samples
+                # logger.log(f"all_outputs = {all_outputs}")
                 all_outputs = np.vstack(all_outputs)
                 all_targets = np.vstack(all_targets)
                 avg_map_scores = list(map(operator.truediv, avg_map_scores, [total_samples] * num_eval_k))

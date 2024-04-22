@@ -16,10 +16,8 @@ class InfVAECascades(Model):
 
     def __init__(self, num_nodes, train_examples, train_examples_times, val_examples, val_examples_times,
                  test_examples, test_examples_times,
-                 # adj,
                  mode='feed', **kwargs):
         super(InfVAECascades, self).__init__(**kwargs)
-        # self.graph = networkx.from_numpy_array(adj)
         self.k_list = [10, 50, 100]  # size of rank list for evaluation.
         self.f1_k_list = list(range(2, 10, 2)) + list(range(10, 201, 10))
         self.roc_k_list = list(range(1, num_nodes + 1, 10))
@@ -30,6 +28,7 @@ class InfVAECascades(Model):
         val_examples, val_lengths, val_targets, val_masks, val_examples_times, val_targets_times = \
             prepare_sequences(val_examples, val_examples_times, max_len=FLAGS.max_seq_length, mode='val')
 
+        # print(f"len(test_examples) = {len(test_examples)}")
         test_examples, test_lengths, test_targets, test_masks, test_examples_times, test_targets_times = \
             prepare_sequences(test_examples, test_examples_times, max_len=FLAGS.max_seq_length, mode='test')
 
@@ -44,6 +43,7 @@ class InfVAECascades(Model):
         if num_val % FLAGS.cascade_batch_size != 0:
             self.num_val_batches += 1
 
+        # print(f"num_test = {num_test}")
         self.num_test_batches = num_test // FLAGS.cascade_batch_size
         if num_test % FLAGS.cascade_batch_size != 0:
             self.num_test_batches += 1

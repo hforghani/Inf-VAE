@@ -185,12 +185,14 @@ def get_data_set(cascades, timestamps, max_len=None, seed_counts=None, mode='tes
     for i in range(len(dataset)):
         cascade, ts_list = dataset[i], dataset_times[i]
         assert len(cascade) == len(ts_list)
+        # assert seed_counts[i] < len(cascade)
+        # print(f"len(cascade) = {len(cascade)}, seeds num = {seed_counts[i]}")
         for j in range(1, len(cascade)):
             seed_set = cascade[0:j]
             seed_set_times = ts_list[0:j]
             remain = cascade[j:]
             remain_times = ts_list[j:]
-            seed_set_percent = len(seed_set) / (len(seed_set) + len(remain))
+            # seed_set_percent = len(seed_set) / (len(seed_set) + len(remain))
             if mode == 'train' or mode == 'val':
                 eval_set.append((seed_set, remain))
                 eval_set_times.append((seed_set_times, remain_times))
@@ -198,6 +200,11 @@ def get_data_set(cascades, timestamps, max_len=None, seed_counts=None, mode='tes
             if mode == 'test' and j == seed_counts[i]:
                 eval_set.append((seed_set, remain))
                 eval_set_times.append((seed_set_times, remain_times))
+
+    if mode == "test" and not eval_set:
+        raise ValueError(f"Minimum number of seeds is {min(eval_set)}. "
+                         f"Provide --max_seq_length with more than this value.")
+
     print("# {} examples {}".format(mode, len(eval_set)))
     return eval_set, eval_set_times
 
