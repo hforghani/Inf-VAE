@@ -169,17 +169,16 @@ def get_data_set(cascades, timestamps, max_len=None, seed_counts=None, mode='tes
     possible seed sizes. """
     dataset, dataset_times = [], []
     eval_set, eval_set_times = [], []
-    for cascade in cascades:
-        if max_len is None or len(cascade) < max_len:
+    for i in range(len(cascades)):
+        cascade = cascades[i]
+        ts_list = timestamps[i]
+        if (max_len is None or len(cascade) < max_len) and seed_counts[i] < max_len:
             dataset.append(cascade)
-        else:
-            dataset.append(cascade[0:max_len])  # truncate
-
-    for ts_list in timestamps:
-        if max_len is None or len(ts_list) < max_len:
             dataset_times.append(ts_list)
-        else:
-            dataset_times.append(ts_list[0:max_len])  # truncate
+
+    if not dataset:
+        raise ValueError(f"Minimum number of seeds is {min(seed_counts)}. "
+                         f"Provide --max_seq_length with more than this value.")
 
     # for cascade, ts_list in zip(dataset, dataset_times):
     for i in range(len(dataset)):
@@ -200,10 +199,6 @@ def get_data_set(cascades, timestamps, max_len=None, seed_counts=None, mode='tes
             if mode == 'test' and j == seed_counts[i]:
                 eval_set.append((seed_set, remain))
                 eval_set_times.append((seed_set_times, remain_times))
-
-    if mode == "test" and not eval_set:
-        raise ValueError(f"Minimum number of seeds is {min(eval_set)}. "
-                         f"Provide --max_seq_length with more than this value.")
 
     print("# {} examples {}".format(mode, len(eval_set)))
     return eval_set, eval_set_times
