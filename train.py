@@ -70,15 +70,20 @@ def main(**kwargs):
         val_cascades, val_times = load_cascades(FLAGS.dataset, mode='val')
         test_cascades, test_times = load_cascades(FLAGS.dataset, mode='test')
 
+        train_seeds = load_seeds(FLAGS.dataset, train_cascades, mode='train')
+        val_seeds = load_seeds(FLAGS.dataset, val_cascades, mode='val')
         test_seeds = load_seeds(FLAGS.dataset, test_cascades, mode='test')
-        # print(f"test_seeds = {test_seeds}")
 
         # Truncating input data based on max_seq_length.
+
         train_examples, train_examples_times = get_data_set(train_cascades, train_times,
                                                             max_len=FLAGS.max_seq_length,
+                                                            seed_counts=train_seeds,
                                                             mode='train')
+        test_seeds = load_seeds(FLAGS.dataset, train_cascades, mode='train')
         val_examples, val_examples_times = get_data_set(val_cascades, val_times,
                                                         max_len=FLAGS.max_seq_length,
+                                                        seed_counts=val_seeds,
                                                         mode='val')
         test_examples, test_examples_times = get_data_set(test_cascades, test_times,
                                                           max_len=FLAGS.max_seq_length,
