@@ -80,7 +80,6 @@ def main(**kwargs):
                                                             max_len=FLAGS.max_seq_length,
                                                             seed_counts=train_seeds,
                                                             mode='train')
-        test_seeds = load_seeds(FLAGS.dataset, train_cascades, mode='train')
         val_examples, val_examples_times = get_data_set(val_cascades, val_times,
                                                         max_len=FLAGS.max_seq_length,
                                                         seed_counts=val_seeds,

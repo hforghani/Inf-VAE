@@ -172,7 +172,12 @@ def get_data_set(cascades, timestamps, max_len=None, seed_counts=None, mode='tes
     for i in range(len(cascades)):
         cascade = cascades[i]
         ts_list = timestamps[i]
-        if (max_len is None or len(cascade) < max_len) and seed_counts[i] < max_len:
+        seeds = seed_counts[i]
+        assert seeds < len(cascade)
+        if (
+                (max_len is None and seed_counts[i] < len(cascade))
+                or (max_len is not None and len(cascade) < max_len)
+        ):
             dataset.append(cascade)
             dataset_times.append(ts_list)
 
@@ -184,7 +189,6 @@ def get_data_set(cascades, timestamps, max_len=None, seed_counts=None, mode='tes
     for i in range(len(dataset)):
         cascade, ts_list = dataset[i], dataset_times[i]
         assert len(cascade) == len(ts_list)
-        # assert seed_counts[i] < len(cascade)
         # print(f"len(cascade) = {len(cascade)}, seeds num = {seed_counts[i]}")
         for j in range(1, len(cascade)):
             seed_set = cascade[0:j]
