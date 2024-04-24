@@ -108,13 +108,6 @@ def mean_f1_at_k(relevance_scores, k, m_list):
     return mean_f1
 
 
-def max_f1(relevance_scores, k_list, m_list):
-    f1_values = [mean_f1_at_k(relevance_scores, k, m_list) for k in k_list]
-    # logging.info(f"f1_values = {f1_values}")
-    max_val = np.max(f1_values)
-    return max_val
-
-
 def average_precision(relevance_score, K, m):
     """ For average precision, we use K as input since the number of prediction targets is not fixed
     unlike standard IR evaluation. """
@@ -172,6 +165,7 @@ def get_relevance_scores(top_k_filter, targets):
     output = []
     # logging.info(f"targets = {targets}")
     for i in range(0, top_k_filter.shape[0]):
+        # logging.info(f"targets[i] = {targets[i]}")
         z = np.isin(top_k_filter[i], targets[i])
         output.append(z)
     return np.array(output)
