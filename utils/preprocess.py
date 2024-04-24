@@ -187,22 +187,23 @@ def get_data_set(cascades, timestamps, max_len=None, seed_counts=None, mode='tes
 
     # for cascade, ts_list in zip(dataset, dataset_times):
     for i in range(len(dataset)):
-        cascade, ts_list = dataset[i], dataset_times[i]
+        cascade, ts_list, seed_count = dataset[i], dataset_times[i], seed_counts[i]
         assert len(cascade) == len(ts_list)
         # print(f"len(cascade) = {len(cascade)}, seeds num = {seed_counts[i]}")
-        for j in range(1, len(cascade)):
-            seed_set = cascade[0:j]
-            seed_set_times = ts_list[0:j]
-            remain = cascade[j:]
-            remain_times = ts_list[j:]
-            # seed_set_percent = len(seed_set) / (len(seed_set) + len(remain))
-            if mode == 'train' or mode == 'val':
-                eval_set.append((seed_set, remain))
-                eval_set_times.append((seed_set_times, remain_times))
-            # if mode == 'test' and (test_min_percent < seed_set_percent < test_max_percent):
-            if mode == 'test' and j == seed_counts[i]:
-                eval_set.append((seed_set, remain))
-                eval_set_times.append((seed_set_times, remain_times))
+        # for j in range(1, len(cascade)):
+        seed_set = cascade[:seed_count]
+        seed_set_times = ts_list[:seed_count]
+        remain = cascade[seed_count:]
+        remain_times = ts_list[seed_count:]
+        eval_set.append((seed_set, remain))
+        eval_set_times.append((seed_set_times, remain_times))
+        # seed_set_percent = len(seed_set) / (len(seed_set) + len(remain))
+        # if mode == 'train' or mode == 'val':
+        #     eval_set.append((seed_set, remain))
+        #     eval_set_times.append((seed_set_times, remain_times))
+        # if mode == 'test' and (test_min_percent < seed_set_percent < test_max_percent):
+        #     eval_set.append((seed_set, remain))
+        #     eval_set_times.append((seed_set_times, remain_times))
 
     print("# {} examples {}".format(mode, len(eval_set)))
     return eval_set, eval_set_times
