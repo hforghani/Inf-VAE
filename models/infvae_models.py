@@ -261,7 +261,7 @@ class InfVAECascades(Model):
 
             if FLAGS.auc_roc:
                 _, output_nodes = tf.nn.top_k(self.outputs, k=self.num_nodes)  # (batch_size, num_nodes)
-                self.top_k = output_nodes[:200]
+                self.top_k = output_nodes[:, :200]
             else:
                 _, self.top_k = tf.nn.top_k(self.outputs, k=200)  # (batch_size, 200)
 
@@ -275,16 +275,16 @@ class InfVAECascades(Model):
                                      tf.int32), [-1]), tf.bool)
 
             relevance_scores_all = tf.compat.v1.py_func(get_relevance_scores, [self.top_k_filter, self.targets],
-                                                        tf.bool)
+                                                        tf.int32)
             if FLAGS.auc_roc:
                 output_relevance_scores_all = tf.compat.v1.py_func(get_relevance_scores, [output_filter, self.targets],
-                                                                   tf.bool)
+                                                                   tf.int32)
 
             # Number of relevant candidates.
             # m = tf.reduce_sum(tf.reduce_max(tf.one_hot(self.targets, self.num_nodes), axis=1), -1)
             m = tf.reduce_sum(tf.cast(tf.not_equal(self.targets, -1), tf.int32), 1)
-            if FLAGS.auc_roc:
-                in_counts = tf.reduce_sum(tf.cast(tf.not_equal(self.inputs, self.num_nodes - 1), tf.int32), 1)
+            # if FLAGS.auc_roc:
+            #     in_counts = tf.reduce_sum(tf.cast(tf.not_equal(self.inputs, self.num_nodes - 1), tf.int32), 1)
 
             self.relevance_scores = tf.cast(tf.boolean_mask(tf.cast(relevance_scores_all,
                                                                     tf.float32), masks), tf.int32)
@@ -315,17 +315,19 @@ class InfVAECascades(Model):
                 self.f1_scores = tf.zeros((1, len(self.f1_k_list)))
 
             if FLAGS.auc_roc:
-                known_targets = tf.reduce_sum(tf.cast(
-                    tf.logical_and(
-                        tf.not_equal(self.targets, -1),
-                        tf.less(self.targets, self.num_nodes - 1)
-                    ), tf.int32), 1)
-                ir_counts = self.num_nodes - 1 - in_counts - known_targets  # Number of irrelevant candidates
+                ir_counts = tf.reduce_sum(tf.cast(tf.equal(output_relevance_scores, 0), tf.int32), 1)
+
+                # res = tf.compat.v1.py_func(log_variables,
+                #                            [self.num_nodes, in_counts, self.inputs, output_nodes,
+                #                             self.top_k, output_filter, masks, output_relevance_scores_all,
+                #                             output_relevance_scores, self.targets, m, ir_counts
+                #                             ], tf.float32)
+                # # Just to append it to computational graph and run it
+                # self.f1_scores = tf.subtract(tf.add(self.f1_scores, res), res)
+
                 self.fpr_scores = [
                     tf.compat.v1.py_func(mean_fpr_at_k,
-                                         [output_relevance_scores, k, ir_counts
-                                          # , in_counts, self.inputs, output_nodes, self.targets, m
-                                          ],
+                                         [output_relevance_scores, k, ir_counts],
                                          tf.float32)
                     for k in self.roc_k_list
                 ]

@@ -91,6 +91,10 @@ def main(**kwargs):
                                                           seed_counts=test_seeds,
                                                           mode='test')
 
+        assert all(ex[1] for ex in train_examples)
+        assert all(ex[1] for ex in val_examples)
+        assert all(ex[1] for ex in test_examples)
+
         print("# nodes in graph", num_nodes)
         print("# train cascades", len(train_cascades))
 

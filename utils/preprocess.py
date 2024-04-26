@@ -167,7 +167,7 @@ def get_data_set(cascades, timestamps, max_len=None, seed_counts=None, mode='tes
     """ Create train/val/test examples from input cascade sequences. Cascade sequences are truncated based on max_len.
     Test examples are sampled with seed set percentage between 10% and 50%. Train/val sets include examples of all
     possible seed sizes. """
-    dataset, dataset_times = [], []
+    dataset, dataset_times, dataset_seeds = [], [], []
     eval_set, eval_set_times = [], []
     for i in range(len(cascades)):
         cascade = cascades[i]
@@ -180,6 +180,7 @@ def get_data_set(cascades, timestamps, max_len=None, seed_counts=None, mode='tes
         ):
             dataset.append(cascade)
             dataset_times.append(ts_list)
+            dataset_seeds.append(seeds)
 
     if not dataset:
         raise ValueError(f"Minimum number of seeds is {min(seed_counts)}. "
@@ -187,7 +188,7 @@ def get_data_set(cascades, timestamps, max_len=None, seed_counts=None, mode='tes
 
     # for cascade, ts_list in zip(dataset, dataset_times):
     for i in range(len(dataset)):
-        cascade, ts_list, seed_count = dataset[i], dataset_times[i], seed_counts[i]
+        cascade, ts_list, seed_count = dataset[i], dataset_times[i], dataset_seeds[i]
         assert len(cascade) == len(ts_list)
         # print(f"len(cascade) = {len(cascade)}, seeds num = {seed_counts[i]}")
         # for j in range(1, len(cascade)):

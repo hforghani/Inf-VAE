@@ -14,7 +14,7 @@ from utils import preprocess
 def precision_at_k(relevance_score, k):
     """ Precision at K given binary relevance scores. """
     assert k >= 1
-    relevance_score = np.asarray(relevance_score)[:k] != 0
+    relevance_score = np.asarray(relevance_score)[:k] == 1
     if relevance_score.size != k:
         raise ValueError('Relevance score length < K')
     return np.mean(relevance_score)
@@ -23,35 +23,27 @@ def precision_at_k(relevance_score, k):
 def recall_at_k(relevance_score, k, m):
     """ Recall at K given binary relevance scores. """
     assert k >= 1
-    relevance_score = np.asarray(relevance_score)[:k] != 0
+    relevance_score = np.asarray(relevance_score)[:k] == 1
     if relevance_score.size != k:
         raise ValueError('Relevance score length < K')
     return np.sum(relevance_score) / float(m)
 
 
-def fpr_at_k(relevance_score, k, ir_count
-             # , in_count, inp, out, target, m
-             ):
+def fpr_at_k(relevance_score, k, ir_count):
     """ False positive rate at K given binary relevance scores. """
     assert k >= 1
-    relevance_score = np.asarray(relevance_score)[:k] != 0
-    if relevance_score.size != k:
+    irrelevance_score = np.asarray(relevance_score)[:k] == 0
+    if irrelevance_score.size != k:
         raise ValueError('Relevance score length < K')
-    # fp = len(set(out[:k]) - set(target))
-    fp = relevance_score.size - np.sum(relevance_score)
+    fp = np.sum(irrelevance_score)
 
-    # logging.info(f"k = {k}\n"
-    #              f"in_count = {in_count}\n"
-    #              f"input = {inp}\n"
-    #              f"output = {out}\n"
-    #              f"target = {target}\n"
-    #              f"relevant count = {m}\n"
-    #              f"relevance_score = {''.join('1' if r else '0' for r in relevance_score)}\n"
-    #              f"relevance_score.size = {relevance_score.size}\n"
-    #              f"np.sum(relevance_score) = {np.sum(relevance_score)}\n"
-    #              f"fp1 = {relevance_score.size - np.sum(relevance_score)}\n"
-    #              f"fp2 = {fp}\n"
-    #              f"ir_count = {ir_count}\n")
+    # if fp > ir_count:
+    #     logging.info(f"k = {k}\n"
+    #                  f"relevance_score = {''.join('1' if r == 1 else '0' if r == 0 else '-' for r in relevance_score)}\n"
+    #                  f"relevance_score.size = {relevance_score.size}\n"
+    #                  f"irrelevance_score = {''.join('1' if r == 1 else '0' if r == 0 else '-' for r in irrelevance_score)}\n"
+    #                  f"fp = {fp}\n"
+    #                  f"ir_count = {ir_count}\n")
 
     assert fp <= ir_count
 
@@ -60,7 +52,7 @@ def fpr_at_k(relevance_score, k, ir_count
 
 def f1_at_k(relevance_score, k, m):
     assert k >= 1
-    relevance_score = np.asarray(relevance_score)[:k] != 0
+    relevance_score = np.asarray(relevance_score)[:k] == 1
     if relevance_score.size != k:
         raise ValueError('Relevance score length < K')
     precision = np.mean(relevance_score)
@@ -69,8 +61,6 @@ def f1_at_k(relevance_score, k, m):
         f1 = 0
     else:
         f1 = 2 * precision * recall / (precision + recall)
-    # logging.info(f"relevance_score = {''.join('1' if r else '0' for r in relevance_score)}\n"
-    #              f"k = {k}, precision = {precision}, recall = {recall}, f1 = {f1}")
     return f1
 
 
@@ -87,18 +77,11 @@ def mean_recall_at_k(relevance_scores, k, m_list):
     return mean_r_at_k
 
 
-def mean_fpr_at_k(relevance_scores, k, ir_list
-                  # , in_counts, inputs, outputs, targets, m_list
-                  ):
+def mean_fpr_at_k(relevance_scores, k, ir_list):
     """ Mean Recall at K:  ir_list is a list containing # irrelevant candidate entities for each data point. """
     mean_fpr = np.mean(
-        [fpr_at_k(r, k, ir_count,
-                  # in_count, inp, out, target, m
-                  ) for r, ir_count
-         # , in_count, inp, out, target, m
-         in zip(relevance_scores, ir_list
-                # , in_counts, inputs, outputs, targets, m_list
-                )]).astype(np.float32)
+        [fpr_at_k(r, k, ir_count) for r, ir_count
+         in zip(relevance_scores, ir_list)]).astype(np.float32)
     return mean_fpr
 
 
@@ -163,12 +146,11 @@ def remove_seeds(top_k, inputs):
 def get_relevance_scores(top_k_filter, targets):
     """ Create binary relevance scores by checking if the top-k predicted users are in target set. """
     output = []
-    # logging.info(f"targets = {targets}")
     for i in range(0, top_k_filter.shape[0]):
-        # logging.info(f"targets[i] = {targets[i]}")
-        z = np.isin(top_k_filter[i], targets[i])
+        z = np.isin(top_k_filter[i], targets[i]).astype(np.int32)
+        z[top_k_filter[i] == -1] = -1
         output.append(z)
-    return np.array(output)
+    return np.array(output, dtype=np.int32)
 
 
 def auc_roc(fprs: list, tprs: list):
@@ -211,3 +193,25 @@ def save_roc(fpr_list: list, tpr_list: list, dataset: str):
     # pyplot.show()
     with open(os.path.join(results_path, f'{base_name}.json'), "w") as f:
         json.dump({"fpr": fpr.tolist(), "tpr": tpr.tolist()}, f)
+
+
+def log_variables(num_nodes, in_counts, inputs, outputs, top_k, output_filter, masks, output_relevance_scores_all,
+                  output_relevance_score, targets, m_list, ir_counts):
+    for i in range(len(m_list)):
+        logging.info(
+            f"num_nodes = {num_nodes}\n"
+            f"inputs[{i}].size = {inputs[i].size}\n"
+            f"inputs[{i}] = [ {', '.join(str(num) for num in inputs[i].tolist())} ]\n"
+            f"in_counts[{i}] = {in_counts[i]}\n"
+            f"outputs[{i}] = [ {', '.join(str(num) for num in outputs[i].tolist())} ]\n"
+            f"top_k[{i}] = [ {', '.join(str(num) for num in top_k[i].tolist())} ]\n"
+            f"output_filter[{i}] = [ {', '.join(str(num) for num in output_filter[i].tolist())} ]\n"
+            f"masks[{i}] = {masks[i]}\n"
+            f"output_relevance_scores_all[{i}] = {''.join('1' if r else '0' if r == 0 else '-' for r in output_relevance_scores_all[i])}\n"
+            f"output_relevance_score[{i}] = {''.join('1' if r else '0' if r == 0 else '-' for r in output_relevance_score[i])}\n"
+            f"output_relevance_score[{i}].size = {output_relevance_score[i].size}\n"
+            f"targets[{i}] = [ {', '.join(str(num) for num in targets[i].tolist())} ]\n"
+            f"m_list[{i}] = {m_list[i]}\n"
+            f"ir_counts[{i}] = {ir_counts[i]}\n"
+        )
+    return np.array(1, dtype=np.float32)
