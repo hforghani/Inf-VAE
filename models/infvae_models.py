@@ -281,10 +281,7 @@ class InfVAECascades(Model):
                                                                    tf.int32)
 
             # Number of relevant candidates.
-            # m = tf.reduce_sum(tf.reduce_max(tf.one_hot(self.targets, self.num_nodes), axis=1), -1)
             m = tf.reduce_sum(tf.cast(tf.not_equal(self.targets, -1), tf.int32), 1)
-            # if FLAGS.auc_roc:
-            #     in_counts = tf.reduce_sum(tf.cast(tf.not_equal(self.inputs, self.num_nodes - 1), tf.int32), 1)
 
             self.relevance_scores = tf.cast(tf.boolean_mask(tf.cast(relevance_scores_all,
                                                                     tf.float32), masks), tf.int32)
@@ -318,7 +315,7 @@ class InfVAECascades(Model):
                 ir_counts = tf.reduce_sum(tf.cast(tf.equal(output_relevance_scores, 0), tf.int32), 1)
 
                 # res = tf.compat.v1.py_func(log_variables,
-                #                            [self.num_nodes, in_counts, self.inputs, output_nodes,
+                #                            [self.num_nodes, self.inputs, output_nodes,
                 #                             self.top_k, output_filter, masks, output_relevance_scores_all,
                 #                             output_relevance_scores, self.targets, m, ir_counts
                 #                             ], tf.float32)

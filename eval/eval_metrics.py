@@ -132,8 +132,6 @@ def remove_seeds(top_k, inputs):
     for i in range(0, top_k.shape[0]):
         seeds = set(inputs[i])
         lst = list(top_k[i])  # top-k predicted users.
-        # logging.info(f"inputs[{i}] = {inputs[i]}\n"
-        #              f"top_k[{i}] = {top_k[i]}")
         for s in seeds:
             if s in lst:
                 lst.remove(s)
@@ -162,16 +160,16 @@ def auc_roc(fprs: list, tprs: list):
 def prepare_roc(fprs, tprs) -> Tuple[np.array, np.array]:
     """ Preprocess fpr and tpr values and sort them to calculate auc_roc or to plot ROC """
     # Every ROC curve must have 2 points <0,0> (no output) and <1,1> (returning all reference set as output).
-    if 0 not in fprs:
-        fprs = [0] + fprs
-        tprs = [0] + tprs
-    if 1 not in fprs:
-        fprs.append(1)
-        tprs.append(1)
     fprs, tprs = np.array(fprs), np.array(tprs)
     indexes = fprs.argsort()
     fprs = fprs[indexes]
     tprs = tprs[indexes]
+    if (fprs[0], tprs[0]) != (0, 0):
+        fprs = np.hstack((np.array([0]), fprs))
+        tprs = np.hstack((np.array([0]), tprs))
+    if (fprs[-1], tprs[-1]) != (1, 1):
+        fprs = np.hstack((fprs, np.array([1])))
+        tprs = np.hstack((tprs, np.array([1])))
     return fprs, tprs
 
 
@@ -195,14 +193,13 @@ def save_roc(fpr_list: list, tpr_list: list, dataset: str):
         json.dump({"fpr": fpr.tolist(), "tpr": tpr.tolist()}, f)
 
 
-def log_variables(num_nodes, in_counts, inputs, outputs, top_k, output_filter, masks, output_relevance_scores_all,
+def log_variables(num_nodes, inputs, outputs, top_k, output_filter, masks, output_relevance_scores_all,
                   output_relevance_score, targets, m_list, ir_counts):
     for i in range(len(m_list)):
         logging.info(
             f"num_nodes = {num_nodes}\n"
             f"inputs[{i}].size = {inputs[i].size}\n"
             f"inputs[{i}] = [ {', '.join(str(num) for num in inputs[i].tolist())} ]\n"
-            f"in_counts[{i}] = {in_counts[i]}\n"
             f"outputs[{i}] = [ {', '.join(str(num) for num in outputs[i].tolist())} ]\n"
             f"top_k[{i}] = [ {', '.join(str(num) for num in top_k[i].tolist())} ]\n"
             f"output_filter[{i}] = [ {', '.join(str(num) for num in output_filter[i].tolist())} ]\n"
