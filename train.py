@@ -95,6 +95,10 @@ def main(**kwargs):
         assert all(ex[1] for ex in val_examples)
         assert all(ex[1] for ex in test_examples)
 
+        test_logs = "\n".join(
+            f"{i}\tinput: {test_examples[i][0]}\n\ttarget: {test_examples[i][1]}" for i in range(len(test_examples)))
+        logger.log(f"test_examples =\n{test_logs}")
+
         print("# nodes in graph", num_nodes)
         print("# train cascades", len(train_cascades))
 
