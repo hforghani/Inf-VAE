@@ -314,13 +314,13 @@ class InfVAECascades(Model):
             if FLAGS.auc_roc:
                 ir_counts = tf.reduce_sum(tf.cast(tf.equal(output_relevance_scores, 0), tf.int32), 1)
 
-                # res = tf.compat.v1.py_func(log_variables,
-                #                            [self.num_nodes, self.inputs, output_nodes,
-                #                             self.top_k, output_filter, masks, output_relevance_scores_all,
-                #                             output_relevance_scores, self.targets, m, ir_counts
-                #                             ], tf.float32)
-                # # Just to append it to computational graph and run it
-                # self.f1_scores = tf.subtract(tf.add(self.f1_scores, res), res)
+                res = tf.compat.v1.py_func(log_variables,
+                                           [self.num_nodes, self.inputs, output_nodes,
+                                            self.top_k, output_filter, masks, output_relevance_scores_all,
+                                            output_relevance_scores, self.targets, m, ir_counts
+                                            ], tf.float32)
+                # Just to append it to computational graph and run it
+                self.f1_scores = tf.subtract(tf.add(self.f1_scores, res), res)
 
                 self.fpr_scores = [
                     tf.compat.v1.py_func(mean_fpr_at_k,

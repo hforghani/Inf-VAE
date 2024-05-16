@@ -95,9 +95,9 @@ def main(**kwargs):
         assert all(ex[1] for ex in val_examples)
         assert all(ex[1] for ex in test_examples)
 
-        test_logs = "\n".join(
-            f"{i}\tinput: {test_examples[i][0]}\n\ttarget: {test_examples[i][1]}" for i in range(len(test_examples)))
-        logger.log(f"test_examples =\n{test_logs}")
+        # test_logs = "\n".join(
+        #     f"{i}\tinput: {test_examples[i][0]}\n\ttarget: {test_examples[i][1]}" for i in range(len(test_examples)))
+        # logger.log(f"test_examples =\n{test_logs}")
 
         print("# nodes in graph", num_nodes)
         print("# train cascades", len(train_cascades))
@@ -123,6 +123,7 @@ def main(**kwargs):
         threads = tf.compat.v1.train.start_queue_runners(sess=sess, coord=coord)
         z_vae_embeds = np.zeros([num_nodes + 1, FLAGS.latent_dim])
         logger.log("======VAE Pre-train=======")
+        t0 = time.time()
         # Step 0: Pre-training using simple VAE on social network.
         for epoch in range(FLAGS.pretrain_epochs):
             losses = []
@@ -149,13 +150,17 @@ def main(**kwargs):
             indices, z_val = sess.run([VGAE.node_indices, VGAE.z_mean])
             z_vae_embeds[indices] = z_val
             s = time.time()
+        logger.log(f"Pre-training + initial run time : {time.time() - t0} s")
 
         val_loss_all = []
         sender_embeds = np.copy(z_vae_embeds)
         receiver_embeds = np.copy(z_vae_embeds)
+        train_val_seconds, test_seconds = 0, 0
+
         for epoch in range(FLAGS.epochs):
             # Train
             # Step 1: VAE on Social Network.
+            t0 = time.time()
             losses = []
             input_feed = VGAE.construct_feed_dict(
                 v_sender_all=sender_embeds,
@@ -183,9 +188,13 @@ def main(**kwargs):
             receiver_embeds = sess.run(CoAtt.receiver_embeddings)
             epoch_loss = np.mean(losses)
             logger.log("Mean Attention loss at epoch: %04d %.5f" % (epoch + 1, epoch_loss))
+            t1 = time.time() - t0
+            logger.log(f"epoch training time : {t1} s")
+            train_val_seconds += t1
 
             # Testing
             if epoch % FLAGS.test_freq == 0:
+                t0 = time.time()
                 input_feed = VGAE.construct_feed_dict(v_sender_all=sender_embeds,
                                                       v_receiver_all=receiver_embeds, dropout=0.)
                 for _ in range(0, num_batches_vae):
@@ -226,6 +235,11 @@ def main(**kwargs):
                         avg_tpr_scores = list(map(operator.add, map(operator.mul, tprs,
                                                                     [num_samples] * num_eval_k_roc), avg_tpr_scores))
                     total_samples += num_samples
+
+                t1 = time.time() - t0
+                logger.log(f"epoch test time : {t1} s")
+                test_seconds += t1
+
                 # logger.log(f"all_outputs = {all_outputs}")
                 all_outputs = np.vstack(all_outputs)
                 all_targets = np.vstack(all_targets)
@@ -248,6 +262,7 @@ def main(**kwargs):
                     for k in range(0, num_eval_k_f1):
                         K = CoAtt.f1_k_list[k]
                         metrics[f"F1@{K:0>3}"] = avg_f1_scores[k]
+                    logger.log(f"max f1 : {max(avg_f1_scores)}")
                 if FLAGS.auc_roc:
                     metrics["auc_roc"] = auc_roc(avg_fpr_scores, avg_tpr_scores)
 
@@ -255,6 +270,7 @@ def main(**kwargs):
 
             # Validation
             if epoch % FLAGS.val_freq == 0:
+                t0 = time.time()
                 input_feed = VGAE.construct_feed_dict(
                     v_sender_all=sender_embeds, v_receiver_all=receiver_embeds, dropout=0.)
                 for b in range(0, num_batches_vae):
@@ -269,6 +285,9 @@ def main(**kwargs):
                 epoch_loss = np.mean(losses)
                 val_loss_all.append(epoch_loss)
                 logger.log("Validation Attention loss at epoch: %04d %.5f" % (epoch + 1, epoch_loss))
+                t1 = time.time() - t0
+                logger.log(f"epoch validation time : {t1} s")
+                train_val_seconds += t1
 
                 # early stopping
                 if len(val_loss_all) >= FLAGS.early_stopping and val_loss_all[-1] > np.mean(
@@ -282,6 +301,9 @@ def main(**kwargs):
         pprint(metrics)
         if FLAGS.auc_roc:
             save_roc(avg_fpr_scores, avg_tpr_scores, FLAGS.dataset.split("/")[0])
+
+        logger.log(f"Total Training + Validation time : {train_val_seconds} s")
+        logger.log(f"Total Test time : {test_seconds} s")
 
         # stop queue runners
         coord.request_stop()
