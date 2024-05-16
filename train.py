@@ -22,7 +22,7 @@ def main(**kwargs):
     from utils.flags import FLAGS
     for key, value in kwargs.items():
         setattr(FLAGS, key, value)
-    # os.environ["CUDA_VISIBLE_DEVICES"] = FLAGS.cuda_device
+    os.environ["CUDA_VISIBLE_DEVICES"] = FLAGS.cuda_device
 
     flags = tf.compat.v1.flags
     FLAGS = flags.FLAGS
