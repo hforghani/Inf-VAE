@@ -87,7 +87,9 @@ def mean_fpr_at_k(relevance_scores, k, ir_list):
 
 def mean_f1_at_k(relevance_scores, k, m_list):
     # logging.info(f"m = {m_list}")
-    mean_f1 = np.mean([f1_at_k(r, k, M) for r, M in zip(relevance_scores, m_list)]).astype(np.float32)
+    f1s = [f1_at_k(r, k, M) for r, M in zip(relevance_scores, m_list)]
+    # logging.info(f"f1 at k = {k} : {f1s}")
+    mean_f1 = np.mean(f1s).astype(np.float32)
     return mean_f1
 
 
